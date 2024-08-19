@@ -1,0 +1,15 @@
+# ignore all
+*
+
+# except
+!ldap/ldap.go
+!fazrequests/fazrequests.go
+
+!data/BLANK_data.json
+!data/BLANK_users.csv
+
+!main.go
+!go.mod
+
+!.gitignore
+!README.md
