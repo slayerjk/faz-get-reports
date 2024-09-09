@@ -4,14 +4,15 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
-	fazrep "faz-get-reports/fazrequests"
-	ldap "faz-get-reports/ldap"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"strings"
 	"time"
+
+	fazrep "github.com/slayerjk/faz-get-reports/fazrequests"
+	ldap "github.com/slayerjk/faz-get-reports/ldap"
 )
 
 const (
