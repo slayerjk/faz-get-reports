@@ -4,6 +4,7 @@
 # except
 !internal/ldap/ldap.go
 !internal/fazrequests/fazrequests.go
+!internal/logging/logging.go
 
 !data/BLANK_data.json
 !data/BLANK_users.csv

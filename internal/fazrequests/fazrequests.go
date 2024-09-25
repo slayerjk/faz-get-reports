@@ -24,7 +24,7 @@ const (
 	messageOk   = `"message": "OK"`
 )
 
-// GET SESSION ID TO PERFORM FAZ API REQUESTS //
+// GET SESSION ID TO PERFORM FAZ API REQUESTS
 func GetSessionid(fazurl, apiuser, apipass string) (string, error) {
 	/*
 		Correct Request Example:

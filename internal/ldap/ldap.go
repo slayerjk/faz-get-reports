@@ -16,7 +16,7 @@ func ldapConnect(ldapFqdn string) (*ldap.Conn, error) {
 }
 
 func LdapBindAndSearch(userAcc, ldapFqdn, ldapBasedn, bindUser, bindPass string) (*ldap.SearchResult, error) {
-	// // filter := fmt.Sprintf("(&(objectClass=user)(sAMAccountName=%s))", userAcc)
+	// filter := fmt.Sprintf("(&(objectClass=user)(sAMAccountName=%s))", userAcc)
 	filter := fmt.Sprintf("(&(objectClass=user)(displayname=%s)(!samaccountname=PAM-*))", userAcc)
 
 	conn, err := ldapConnect(ldapFqdn)

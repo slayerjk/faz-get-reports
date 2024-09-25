@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -11,11 +12,13 @@ import (
 	"strings"
 	"time"
 
-	fazrep "github.com/slayerjk/faz-get-reports/fazrequests"
-	ldap "github.com/slayerjk/faz-get-reports/ldap"
+	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
+	ldap "github.com/slayerjk/faz-get-reports/internal/ldap"
+	"github.com/slayerjk/faz-get-reports/internal/logging"
 )
 
 const (
+	appName       = "faz-get-report"
 	dataFilePath  = "data/data.json"
 	usersFilePath = "data/users.csv"
 	resultsPath   = "Results"
@@ -57,6 +60,17 @@ func main() {
 		fazReportLayout int
 		tempList        []string
 	)
+
+	// setting logging
+	outputToLog := flag.Bool("l", false, "enable logging to file: logs/appName_<dd.mm.YYYY>.log")
+	flag.Parse()
+
+	logPath := "logs"
+	if *outputToLog {
+		if errL := logging.StartLogging(appName); errL != nil {
+
+		}
+	}
 
 	// READING FAZ DATA FILE
 	fazDataFile, errFile := os.Open(dataFilePath)
