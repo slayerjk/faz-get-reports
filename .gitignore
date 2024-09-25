@@ -2,8 +2,8 @@
 *
 
 # except
-!ldap/ldap.go
-!fazrequests/fazrequests.go
+!internal/ldap/ldap.go
+!internal/fazrequests/fazrequests.go
 
 !data/BLANK_data.json
 !data/BLANK_users.csv
