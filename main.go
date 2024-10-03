@@ -14,14 +14,17 @@ import (
 
 	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
 	ldap "github.com/slayerjk/faz-get-reports/internal/ldap"
-	"github.com/slayerjk/faz-get-reports/internal/logging"
+	logging "github.com/slayerjk/faz-get-reports/internal/logging"
+	rotatefiles "github.com/slayerjk/faz-get-reports/internal/rotatefiles"
 )
 
 const (
-	appName       = "faz-get-report"
-	dataFilePath  = "data/data.json"
-	usersFilePath = "data/users.csv"
-	resultsPath   = "Results"
+	defaultLogPath    = "logs"
+	defaultLogsToKeep = 7
+	appName           = "faz-get-report"
+	dataFilePath      = "data/data.json"
+	usersFilePath     = "data/users.csv"
+	resultsPath       = "Results"
 )
 
 type fazData struct {
@@ -61,16 +64,24 @@ func main() {
 		tempList        []string
 	)
 
-	// setting logging
-	outputToLog := flag.Bool("l", false, "enable logging to file: logs/appName_<dd.mm.YYYY>.log")
+	// flags
+	logDir := flag.String("log-dir", defaultLogPath, "set custom log dir")
+	logsToKeep := flag.Int("keep-logs", defaultLogsToKeep, "set number of logs to keep after rotation")
 	flag.Parse()
 
-	logPath := "logs"
-	if *outputToLog {
-		if errL := logging.StartLogging(appName); errL != nil {
+	// logging
+	appName := "faz-get-requests"
 
-		}
+	logFile, err := logging.StartLogging(appName, *logDir, *logsToKeep)
+	if err != nil {
+		log.Fatalf("failed to start logging:\n\t%s", err)
 	}
+
+	defer logFile.Close()
+
+	// starting programm notification
+	startTime := time.Now()
+	log.Println("Program Started")
 
 	// READING FAZ DATA FILE
 	fazDataFile, errFile := os.Open(dataFilePath)
@@ -131,9 +142,9 @@ func main() {
 	}
 
 	// GETTING REPORT LAYOUT
-	sessionid, err := fazrep.GetSessionid(fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
-	if err != nil {
-		log.Fatal("FAILED: to get sessionid\n\t", err)
+	sessionid, errS := fazrep.GetSessionid(fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
+	if errS != nil {
+		log.Fatal("FAILED: to get sessionid\n\t", errS)
 	}
 
 	fazReportLayout, errLayout := fazrep.GetFazReportLayout(fazData.FazUrl, sessionid, fazData.FazAdom, fazData.FazReportName)
@@ -217,5 +228,16 @@ func main() {
 		}
 
 		log.Printf("FINISHED: GETTING REPORT JOB: %s\n\n", user.Username)
+	}
+
+	// count & print estimated time
+	endTime := time.Now()
+	log.Printf("Program Done\n\tEstimated time is %f seconds", endTime.Sub(startTime).Seconds())
+
+	// close logfile and rotate logs
+	logFile.Close()
+
+	if err := rotatefiles.RotateFilesByMtime(*logDir, *logsToKeep); err != nil {
+		log.Fatalf("failed to rotate logs:\n\t%s", err)
 	}
 }
