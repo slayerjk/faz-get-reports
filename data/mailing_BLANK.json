@@ -1,0 +1,13 @@
+{
+    "host": "my-smtp@example.com",
+    "port": 25,
+    "from_addr": "my-app@example.com",
+    "to_addr_errors": [
+        "admin-1@example.com",
+        "admin-2@example.com"
+    ],
+    "to_addr_reports": [
+        "user-1@example.com",
+        "user-2@example.com"
+    ]
+}
