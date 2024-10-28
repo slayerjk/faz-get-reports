@@ -5,9 +5,12 @@
 !internal/ldap/ldap.go
 !internal/fazrequests/fazrequests.go
 !internal/logging/logging.go
+!internal/mailing/mailing.go
 
 !data/BLANK_data.json
 !data/BLANK_users.csv
+!data/data_BLANK.db
+!data/mailing_BLANK.json
 
 !main.go
 !go.mod

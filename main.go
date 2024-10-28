@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,15 +17,35 @@ import (
 	ldap "github.com/slayerjk/faz-get-reports/internal/ldap"
 	logging "github.com/slayerjk/faz-get-reports/internal/logging"
 	rotatefiles "github.com/slayerjk/faz-get-reports/internal/rotatefiles"
+	// "github.com/slayerjk/faz-get-reports/internal/mailing"
 )
 
 const (
-	defaultLogPath    = "logs"
-	defaultLogsToKeep = 7
-	appName           = "faz-get-report"
-	dataFilePath      = "data/data.json"
-	usersFilePath     = "data/users.csv"
-	resultsPath       = "Results"
+	appName = "faz-get-report"
+)
+
+// get full path of Go executable
+func getExePath() string {
+	// get executable's working dir
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	exePath := filepath.Dir(exe)
+
+	return exePath
+}
+
+// defining default values
+var (
+	logsPath      = getExePath() + "/logs" + "_get-faz-reports"
+	logsToKeep    = 7
+	dataFilePath  = getExePath() + "/data/data.json"
+	usersFilePath = getExePath() + "/data/users.csv"
+	resultsPath   = getExePath() + "Results"
+	dbFile        = getExePath() + "/data/data.db"
+	mailingFile   = getExePath() + "/data/mailing.json"
 )
 
 type fazData struct {
@@ -65,13 +86,11 @@ func main() {
 	)
 
 	// flags
-	logDir := flag.String("log-dir", defaultLogPath, "set custom log dir")
-	logsToKeep := flag.Int("keep-logs", defaultLogsToKeep, "set number of logs to keep after rotation")
+	logDir := flag.String("log-dir", logsPath, "set custom log dir")
+	logsToKeep := flag.Int("keep-logs", logsToKeep, "set number of logs to keep after rotation")
 	flag.Parse()
 
 	// logging
-	appName := "faz-get-requests"
-
 	logFile, err := logging.StartLogging(appName, *logDir, *logsToKeep)
 	if err != nil {
 		log.Fatalf("failed to start logging:\n\t%s", err)
