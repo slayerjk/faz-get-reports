@@ -6,13 +6,14 @@
 !internal/fazrequests/fazrequests.go
 !internal/logging/logging.go
 !internal/mailing/mailing.go
+!internal/dboperations/dboperations.go
 
 !data/BLANK_data.json
 !data/BLANK_users.csv
 !data/data_BLANK.db
 !data/mailing_BLANK.json
 
-!main.go
+!get-faz-reports.go
 !go.mod
 
 !.gitignore
