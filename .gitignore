@@ -13,8 +13,8 @@
 !data/data_BLANK.db
 !data/mailing_BLANK.json
 
-!get-faz-reports.go
-!go.mod
+!cmd/get-faz-reports.go
 
+!go.mod
 !.gitignore
 !README.md
