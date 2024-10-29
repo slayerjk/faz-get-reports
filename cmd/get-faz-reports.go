@@ -23,10 +23,11 @@ import (
 )
 
 const (
-	appName           = "faz-get-report"
-	dbTable           = "Data"
-	dbValueColumn     = "Value"
-	dbProcessedColumn = "Processed"
+	appName               = "faz-get-report"
+	dbTable               = "Data"
+	dbValueColumn         = "Value"
+	dbProcessedColumn     = "Processed"
+	dbProcessedDateColumn = "Processed_Date"
 )
 
 // get full path of Go executable
@@ -38,7 +39,6 @@ func getExePath() string {
 	}
 
 	exePath := filepath.Dir(exe)
-
 	return exePath
 }
 
@@ -50,7 +50,7 @@ var (
 	usersFilePath = getExePath() + "/data/users.csv"
 	resultsPath   = getExePath() + "Results"
 	dbFile        = getExePath() + "/data/data.db"
-	mailingFile   = getExePath() + "/data/mailing.json"
+	// mailingFile   = getExePath() + "/data/mailing.json"
 )
 
 type fazData struct {
@@ -129,12 +129,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get list of unprocessed values in db(%s):\n\t%v", dbFile, err)
 	}
-	// fmt.Print(unprocessedValues)
+	fmt.Println(unprocessedValues)
 
 	// exit program if there are no values to process
 	if len(unprocessedValues) == 0 {
 		log.Fatalf("no values to process this time, exiting")
 	}
+
+	// TEST update value
+	errU := dboperations.UpdDbValue(dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn, "test7", 1)
+	if errU != nil {
+		log.Fatalf("failed to update value(%s) to result(%v):\n\t%v", "test", 1, errU)
+	}
+	log.Printf("succeeded to update value(%s) to result(%v):\n", "test", 1)
 	os.Exit(0)
 
 	// READING USERS FILE

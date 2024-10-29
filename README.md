@@ -8,9 +8,12 @@
 
 <h2>Description</h2>
 
-Script create & download PDF report for AD users which pointed in users.csv.
+Script create & download PDF report for AD users which pointed either in users.csv or using API of HD Naumen.
 
 So you need to have FAZ api user creds & AD bind account to read AD tree for users.
+
+
+<h3>Using CSV</h3>
 
 In users.csv first column is AD displayName attribute(Full user name). So for FAZ script must use sAMAccountName - need to use LDAP to get this.
 
@@ -23,6 +26,30 @@ Surname N.P._DD-MM-YYYY-T-hh-mm-ss_DD-MM-YYYY-T-hh-mm-ss
   * DD-MM-YYYY-T-hh-mm-ss - datetime from start to end
 
 FAZ can't run several reports simultaneously(because we use the same datasets), so you need to wait FAZ end processing report and then start next.
+
+<h3>Using HD Naumen API and Sqlite3 DB</h3>
+
+Program uses Sqlite3 DB. It must be located in project root's 'data' directory and called 'data.db'.
+
+DB is simple: 
+    table 'Data' with columns:
+        ID(INTEGER PRIMARY KEY), 
+        Value(TEXT NOT NULL UNIQUE), 
+        Posted_Date(TEXT),
+        Processed(INTEGER(0(failed)/1(succeeded)/NULL(na)))
+        Processed_Date(TEXT)
+```
+CREATE TABLE "Data" (
+	"ID"	INTEGER,
+	"Value"	TEXT NOT NULL UNIQUE,
+	"Posted_Date"	TEXT,
+	"Processed"	INTEGER,
+	"Processed_Date"	TEXT,
+	PRIMARY KEY("ID")
+);
+```
+
+data_BLANK.db - is just empty DB with stucture described above. Rename it to data.db to use with application.
 
 <h2>Workflow</h2>
 
