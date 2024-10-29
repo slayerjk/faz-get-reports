@@ -21,7 +21,8 @@ func GetUnprocessedDbValues(dbFile, dbTable, dbValueColumn, dbProcessedColumn st
 	defer db.Close()
 
 	// get select result of unprocessed values
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s IS NULL", dbValueColumn, dbTable, dbProcessedColumn)
+	// query := fmt.Sprintf("SELECT %s FROM %s WHERE %s IS NULL", dbValueColumn, dbTable, dbProcessedColumn)
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s=3", dbValueColumn, dbTable, dbProcessedColumn)
 	rows, err := db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make select of unprocessed values:\n\t%v", err)

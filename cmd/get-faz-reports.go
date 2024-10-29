@@ -19,6 +19,7 @@ import (
 	logging "github.com/slayerjk/faz-get-reports/internal/logging"
 	rotatefiles "github.com/slayerjk/faz-get-reports/internal/rotatefiles"
 	// "github.com/slayerjk/faz-get-reports/internal/mailing"
+	// "github.com/slayerjk/faz-get-reports/internal/hd-naumen-api"
 )
 
 const (
@@ -128,7 +129,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get list of unprocessed values in db(%s):\n\t%v", dbFile, err)
 	}
-	fmt.Print(unprocessedValues)
+	// fmt.Print(unprocessedValues)
+
+	// exit program if there are no values to process
+	if len(unprocessedValues) == 0 {
+		log.Fatalf("no values to process this time, exiting")
+	}
 	os.Exit(0)
 
 	// READING USERS FILE

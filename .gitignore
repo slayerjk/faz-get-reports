@@ -7,6 +7,7 @@
 !internal/logging/logging.go
 !internal/mailing/mailing.go
 !internal/dboperations/dboperations.go
+!internal/hd-naumen-api/hd-naumen-api.go
 
 !data/BLANK_data.json
 !data/BLANK_users.csv
