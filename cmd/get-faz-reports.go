@@ -48,7 +48,7 @@ var (
 	logsToKeep    = 7
 	dataFilePath  = getExePath() + "/data/data.json"
 	usersFilePath = getExePath() + "/data/users.csv"
-	resultsPath   = getExePath() + "Results"
+	resultsPath   = getExePath() + "/Reports"
 	dbFile        = getExePath() + "/data/data.db"
 	// mailingFile   = getExePath() + "/data/mailing.json"
 )
@@ -93,6 +93,7 @@ func main() {
 	// flags
 	logDir := flag.String("log-dir", logsPath, "set custom log dir")
 	logsToKeep := flag.Int("keep-logs", logsToKeep, "set number of logs to keep after rotation")
+	mode := flag.String("mode", "db", "set program mode('csv' - use data/users.csv; 'db' - use sqlite3 data/data.db)")
 	flag.Parse()
 
 	// logging
@@ -124,68 +125,73 @@ func main() {
 		log.Fatal("FAILED: to unmarshall json:\n\t", errJson)
 	}
 
-	// getting list of unporcessed values in db
-	unprocessedValues, err := dboperations.GetUnprocessedDbValues(dbFile, dbTable, dbValueColumn, dbProcessedColumn)
-	if err != nil {
-		log.Fatalf("failed to get list of unprocessed values in db(%s):\n\t%v", dbFile, err)
-	}
-	fmt.Println(unprocessedValues)
-
-	// exit program if there are no values to process
-	if len(unprocessedValues) == 0 {
-		log.Fatalf("no values to process this time, exiting")
+	// CREATING REPORTS DIR IF NOT EXIST
+	if err := os.MkdirAll(resultsPath, os.ModePerm); err != nil {
+		log.Fatal("FAILED: to Create Reports Dir", err)
 	}
 
-	// TEST update value
-	errU := dboperations.UpdDbValue(dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn, "test7", 1)
-	if errU != nil {
-		log.Fatalf("failed to update value(%s) to result(%v):\n\t%v", "test", 1, errU)
+	// different workflows for mode 'db'(default) & 'csv'
+	switch *mode {
+	case "db":
+		// getting list of unporcessed values in db
+		unprocessedValues, err := dboperations.GetUnprocessedDbValues(dbFile, dbTable, dbValueColumn, dbProcessedColumn)
+		if err != nil {
+			log.Fatalf("failed to get list of unprocessed values in db(%s):\n\t%v", dbFile, err)
+		}
+		fmt.Println(unprocessedValues)
+
+		// exit program if there are no values to process
+		if len(unprocessedValues) == 0 {
+			log.Fatalf("no values to process this time, exiting")
+		}
+	case "csv":
+		// READING USERS FILE
+		usersFile, errFile := os.Open(usersFilePath)
+
+		if errFile != nil {
+			log.Fatal("FAILED: to open users file:\n\t", errFile)
+		}
+		defer usersFile.Close()
+
+		csvreader := csv.NewReader(usersFile)
+
+		for {
+			row, err := csvreader.Read()
+			if err == io.EOF {
+				break
+			}
+
+			user.Username = row[0]
+
+			// GETTING USER INITIALS
+			tempList = []string{}
+			for ind, item := range strings.Split(row[0], " ") {
+				if ind == 0 {
+					tempList = append(tempList, item)
+				} else {
+					runeItem := []rune(item)
+					tempList = append(tempList, fmt.Sprintf("%s.", string(runeItem[0:1])))
+				}
+			}
+			user.UserInitials = strings.Join(tempList, " ")
+
+			user.StartDate = row[1]
+			user.EndDate = row[2]
+
+			users = append(users, user)
+		}
 	}
-	log.Printf("succeeded to update value(%s) to result(%v):\n", "test", 1)
+
 	os.Exit(0)
 
-	// READING USERS FILE
-	usersFile, errFile := os.Open(usersFilePath)
+	// TEST update value
+	// errU := dboperations.UpdDbValue(dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn, "test7", 0)
+	// if errU != nil {
+	// 	log.Fatalf("failed to update value(%s) to result(%v):\n\t%v", "test7", 1, errU)
+	// }
+	// log.Printf("succeeded to update value(%s) to result(%v):\n", "test7", 1)
 
-	if errFile != nil {
-		log.Fatal("FAILED: to open users file:\n\t", errFile)
-	}
-	defer usersFile.Close()
-
-	csvreader := csv.NewReader(usersFile)
-
-	for {
-		row, err := csvreader.Read()
-		if err == io.EOF {
-			break
-		}
-
-		user.Username = row[0]
-
-		// GETTING USER INITIALS
-		tempList = []string{}
-		for ind, item := range strings.Split(row[0], " ") {
-			if ind == 0 {
-				tempList = append(tempList, item)
-			} else {
-				runeItem := []rune(item)
-				tempList = append(tempList, fmt.Sprintf("%s.", string(runeItem[0:1])))
-			}
-		}
-		user.UserInitials = strings.Join(tempList, " ")
-
-		user.StartDate = row[1]
-		user.EndDate = row[2]
-
-		users = append(users, user)
-	}
-
-	// CREATING RESULT DIR IF NOT EXIST
-	if err := os.MkdirAll(resultsPath, os.ModePerm); err != nil {
-		log.Fatal("FAILED: to Create Results Dir", err)
-	}
-
-	// GETTING REPORT LAYOUT
+	// GETTING FAZ REPORT LAYOUT
 	sessionid, errS := fazrep.GetSessionid(fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
 	if errS != nil {
 		log.Fatal("FAILED: to get sessionid\n\t", errS)
@@ -196,7 +202,7 @@ func main() {
 		log.Fatalf("FAILED: to get report layout:\n\t%v", errLayout)
 	}
 
-	// GETTING REPORT LOOP
+	// STARTING GETTING REPORT LOOP
 	for _, user := range users {
 		log.Printf("STARTED: GETTING REPORT JOB: %s\n", user.Username)
 

@@ -38,13 +38,15 @@ func readMailingData(dataFile string) (MailData, error) {
 	return result, nil
 }
 
-// send plain text mail without auth(smtp:25);
-// msgType may be: report/error or anything you like;
-// appName - your app name;
+// Send plain text mail without auth(typically smtp:25).
+// msgType may be: 'report' or 'error'. Correspondingly will send either to ToAddrErrors or ToAddrReports recievers list in MailData
+// appName - your app name. Will be represented in Subject: 'appName - msgType(02.01.2006 15:04)'
 // subject will be like "appName - msgType"
-func SendPlainEmailWoAuth(dataFile, msgType, appName string, msg []byte, curDate time.Time) error {
+func SendPlainEmailWoAuth(mailDataFile, msgType, appName string, msg []byte) error {
+	// setting date string for Subject
+	curDate := time.Now().Format("02.01.2006 15:04")
 	// read mailing data
-	mailData, err := readMailingData(dataFile)
+	mailData, err := readMailingData(mailDataFile)
 	if err != nil {
 		return fmt.Errorf("failed to get mailing data file:\n\t%v", err)
 	}
@@ -53,7 +55,7 @@ func SendPlainEmailWoAuth(dataFile, msgType, appName string, msg []byte, curDate
 	fromAddr := mailData.FromAddr
 	smtpHost := mailData.Host
 	smtpHostAndPort := fmt.Sprintf("%s:%s", smtpHost, mailData.Port)
-	subject := fmt.Sprintf("%s - %s(%v)\n", appName, msgType, curDate.Format("02.01.2006 15:04"))
+	subject := fmt.Sprintf("%s - %s(%v)\n", appName, msgType, curDate)
 
 	// checking type of recepients to implement(errors/reports)
 	var toAddr []string
@@ -82,20 +84,3 @@ func SendPlainEmailWoAuth(dataFile, msgType, appName string, msg []byte, curDate
 
 	return nil
 }
-
-/* // mailing example 'report'(read and send log file)
-report, err := os.ReadFile(logFile.Name())
-if err != nil {
-	log.Fatal(err)
-}
-errM1 := mailing.SendPlainEmailWoAuth("mailing.json", "report", appName, report, startTime)
-if errM1 != nil {
-	log.Printf("failed to send email:\n\t%v", errM1)
-} */
-
-/* // mailing example 'error'(just error text)
-newError := fmt.Errorf("custom error")
-errM2 := mailing.SendPlainEmailWoAuth("mailing.json", "error", appName, []byte(newError.Error()), startTime)
-if errM2 != nil {
-	log.Printf("failed to send email:\n\t%v", errM2)
-} */
