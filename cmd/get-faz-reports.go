@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,7 +16,7 @@ import (
 	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
 	ldap "github.com/slayerjk/faz-get-reports/internal/ldap"
 	logging "github.com/slayerjk/faz-get-reports/internal/logging"
-	rotatefiles "github.com/slayerjk/faz-get-reports/internal/rotatefiles"
+	"github.com/slayerjk/faz-get-reports/internal/vafswork"
 	// "github.com/slayerjk/faz-get-reports/internal/mailing"
 	// "github.com/slayerjk/faz-get-reports/internal/hd-naumen-api"
 )
@@ -30,27 +29,15 @@ const (
 	dbProcessedDateColumn = "Processed_Date"
 )
 
-// get full path of Go executable
-func getExePath() string {
-	// get executable's working dir
-	exe, err := os.Executable()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	exePath := filepath.Dir(exe)
-	return exePath
-}
-
 // defining default values
 var (
-	logsPath      = getExePath() + "/logs" + "_get-faz-reports"
+	logsPath      = vafswork.GetExePath() + "/logs" + "_get-faz-reports"
 	logsToKeep    = 7
-	dataFilePath  = getExePath() + "/data/data.json"
-	usersFilePath = getExePath() + "/data/users.csv"
-	resultsPath   = getExePath() + "/Reports"
-	dbFile        = getExePath() + "/data/data.db"
-	// mailingFile   = getExePath() + "/data/mailing.json"
+	dataFilePath  = vafswork.GetExePath() + "/data/data.json"
+	usersFilePath = vafswork.GetExePath() + "/data/users.csv"
+	resultsPath   = vafswork.GetExePath() + "/Reports"
+	dbFile        = vafswork.GetExePath() + "/data/data.db"
+	// mailingFile   = vafswork.GetExePath() + "/data/mailing.json"
 )
 
 type fazData struct {
@@ -77,6 +64,7 @@ type User struct {
 }
 
 func main() {
+	// TODO: maybe refactor to be in fazrequests?
 	var (
 		fazData         fazData
 		user            User
@@ -287,7 +275,7 @@ func main() {
 	// close logfile and rotate logs
 	logFile.Close()
 
-	if err := rotatefiles.RotateFilesByMtime(*logDir, *logsToKeep); err != nil {
+	if err := vafswork.RotateFilesByMtime(*logDir, *logsToKeep); err != nil {
 		log.Fatalf("failed to rotate logs:\n\t%s", err)
 	}
 }

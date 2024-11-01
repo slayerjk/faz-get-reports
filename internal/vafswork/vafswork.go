@@ -1,11 +1,25 @@
-package rotatefiles
+package vafswork
 
 import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 )
+
+// get full path of Go executable
+func GetExePath() string {
+	// get executable's working dir
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	exePath := filepath.Dir(exe)
+
+	return exePath
+}
 
 // Rotate files: keep <num> of most recent files and delete other
 func RotateFilesByMtime(filesDir string, filesToKeep int) error {

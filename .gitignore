@@ -6,6 +6,7 @@
 !internal/fazrequests/fazrequests.go
 !internal/logging/logging.go
 !internal/mailing/mailing.go
+!internal/vafswork/vafswork.go
 !internal/dboperations/dboperations.go
 !internal/hd-naumen-api/hd-naumen-api.go
 
