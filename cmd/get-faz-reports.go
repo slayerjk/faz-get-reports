@@ -29,17 +29,6 @@ const (
 	dbProcessedDateColumn = "Processed_Date"
 )
 
-// defining default values
-var (
-	logsPath      = vafswork.GetExePath() + "/logs" + "_get-faz-reports"
-	logsToKeep    = 7
-	dataFilePath  = vafswork.GetExePath() + "/data/data.json"
-	usersFilePath = vafswork.GetExePath() + "/data/users.csv"
-	resultsPath   = vafswork.GetExePath() + "/Reports"
-	dbFile        = vafswork.GetExePath() + "/data/data.db"
-	// mailingFile   = vafswork.GetExePath() + "/data/mailing.json"
-)
-
 type fazData struct {
 	LdapBindUser    string              `json:"ldap-bind-user"`
 	LdapBindPass    string              `json:"ldap-bind-pass"`
@@ -66,6 +55,13 @@ type User struct {
 func main() {
 	// TODO: maybe refactor to be in fazrequests?
 	var (
+		logsPath      = vafswork.GetExePath() + "/logs" + "_get-faz-reports"
+		dataFilePath  = vafswork.GetExePath() + "/data/data.json"
+		usersFilePath = vafswork.GetExePath() + "/data/users.csv"
+		resultsPath   = vafswork.GetExePath() + "/Reports"
+		dbFile        = vafswork.GetExePath() + "/data/data.db"
+		// mailingFile   = vafswork.GetExePath() + "/data/mailing.json"
+
 		fazData         fazData
 		user            User
 		users           []User
@@ -80,7 +76,7 @@ func main() {
 
 	// flags
 	logDir := flag.String("log-dir", logsPath, "set custom log dir")
-	logsToKeep := flag.Int("keep-logs", logsToKeep, "set number of logs to keep after rotation")
+	logsToKeep := flag.Int("keep-logs", 7, "set number of logs to keep after rotation")
 	mode := flag.String("mode", "db", "set program mode('csv' - use data/users.csv; 'db' - use sqlite3 data/data.db)")
 	flag.Parse()
 
