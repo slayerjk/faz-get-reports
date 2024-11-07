@@ -1,6 +1,6 @@
 <h1>FortiAnalyzer(FAZ) Get Reports</h1>
 
-<p>For data program uses "data/data.json"(FAZ creds)."data/users.csv". Edit & rename "BLANK" files correspondingly.</p>
+<p>For data program uses "data/faz-data.json"(FAZ creds)."data/users.csv". Edit & rename "BLANK" files correspondingly.</p>
 
 Flags are: 
     * mode('csv' or 'db'(default)), 
@@ -14,6 +14,34 @@ Script create & download PDF report for AD users which pointed either in users.c
 So you need to have FAZ api user creds & AD bind account to read AD tree for users.
 
 <b>Important</b>: FAZ can't run several reports simultaneously(because we use the same datasets), so you need to wait FAZ end processing report and then start next.
+
+<h3>faz-data.json<h3>
+
+Here is example of json used for FAZ API:
+```
+{
+    "ldap-bind-user": "<LDAP BIND USER>",
+    "ldap-bind-pass": "<LDAP BIND USER'S PASS",
+    "ldap-fqdn": "<DOMAIN FQDN>",
+    "ldap-basedn": "DC=DOMAIN,DC=EXAMPLE,DC=COM",
+    "faz-url": "https://<YOUR FAZ DOMAIN>/jsonrpc",
+    "api-user": "<FAZ API USER>",
+    "api-user-pass": "<FAZ API USER PASS>",
+    "faz-adom": "<FAZ ADOM>",
+    "faz-device": "<FAZ DEVICE NAME>",
+    "faz-report-name": "<FAZ REPORT NAME(FOR LAYOUT)",
+    "faz-datasets": [
+        {
+            "dataset": "<FAZ DATASET NAME>",
+            "dataset-query": "<FAZ DATASET QUERY>"
+        },
+        {
+            "dataset": "<FAZ DATASET NAME>",
+            "dataset-query": "<FAZ DATASET QUERY>"
+        }
+    ]
+}
+```
 
 <h3>Using CSV</h3>
 

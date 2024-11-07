@@ -30,10 +30,6 @@ const (
 )
 
 type fazData struct {
-	LdapBindUser    string              `json:"ldap-bind-user"`
-	LdapBindPass    string              `json:"ldap-bind-pass"`
-	LdapFqdn        string              `json:"ldap-fqdn"`
-	LdapBaseDn      string              `json:"ldap-basedn"`
 	FazUrl          string              `json:"faz-url"`
 	ApiUser         string              `json:"api-user"`
 	ApiUserPass     string              `json:"api-user-pass"`
@@ -43,6 +39,13 @@ type fazData struct {
 	FazDatasetTotal string              `json:"faz-dataset-total"`
 	FazReportName   string              `json:"faz-report-name"`
 	FazDatasets     []map[string]string `json:"faz-datasets"`
+}
+
+type ldapData struct {
+	LdapBindUser string `json:"ldap-bind-user"`
+	LdapBindPass string `json:"ldap-bind-pass"`
+	LdapFqdn     string `json:"ldap-fqdn"`
+	LdapBaseDn   string `json:"ldap-basedn"`
 }
 
 type User struct {
@@ -55,14 +58,16 @@ type User struct {
 func main() {
 	// TODO: maybe refactor to be in fazrequests?
 	var (
-		logsPath      = vafswork.GetExePath() + "/logs" + "_get-faz-reports"
-		dataFilePath  = vafswork.GetExePath() + "/data/data.json"
-		usersFilePath = vafswork.GetExePath() + "/data/users.csv"
-		resultsPath   = vafswork.GetExePath() + "/Reports"
-		dbFile        = vafswork.GetExePath() + "/data/data.db"
+		logsPath         = vafswork.GetExePath() + "/logs" + "_get-faz-reports"
+		fazDataFilePath  = vafswork.GetExePath() + "/data/faz-data.json"
+		ldapDataFilePath = vafswork.GetExePath() + "/data/ldap-data.json"
+		usersFilePath    = vafswork.GetExePath() + "/data/users.csv"
+		resultsPath      = vafswork.GetExePath() + "/Reports"
+		dbFile           = vafswork.GetExePath() + "/data/data.db"
 		// mailingFile   = vafswork.GetExePath() + "/data/mailing.json"
 
 		fazData         fazData
+		ldapData        ldapData
 		user            User
 		users           []User
 		sessionid       string
@@ -93,7 +98,7 @@ func main() {
 	log.Println("Program Started")
 
 	// READING FAZ DATA FILE
-	fazDataFile, errFile := os.Open(dataFilePath)
+	fazDataFile, errFile := os.Open(fazDataFilePath)
 	if errFile != nil {
 		log.Fatal("FAILED: to open data-file:\n\t", errFile)
 	}
@@ -104,9 +109,26 @@ func main() {
 		log.Fatal("FAILED: to io.ReadALL", errRead)
 	}
 
-	errJson := json.Unmarshal(byteFazData, &fazData)
-	if errJson != nil {
-		log.Fatal("FAILED: to unmarshall json:\n\t", errJson)
+	errJsonF := json.Unmarshal(byteFazData, &fazData)
+	if errJsonF != nil {
+		log.Fatal("FAILED: to unmarshall json:\n\t", errJsonF)
+	}
+
+	// READING LDAP DATA FILE
+	ldapDataFile, errFile := os.Open(ldapDataFilePath)
+	if errFile != nil {
+		log.Fatal("FAILED: to open data-file:\n\t", errFile)
+	}
+	defer fazDataFile.Close()
+
+	byteLdapData, errRead := io.ReadAll(ldapDataFile)
+	if errRead != nil {
+		log.Fatal("FAILED: to io.ReadALL", errRead)
+	}
+
+	errJsonL := json.Unmarshal(byteLdapData, &ldapData)
+	if errJsonL != nil {
+		log.Fatal("FAILED: to unmarshall json:\n\t", errJsonL)
 	}
 
 	// CREATING REPORTS DIR IF NOT EXIST
@@ -191,7 +213,7 @@ func main() {
 		log.Printf("STARTED: GETTING REPORT JOB: %s\n", user.Username)
 
 		// GETTING ADUSER FULL NAME
-		adSearchResult, err := ldap.LdapBindAndSearch(user.Username, fazData.LdapFqdn, fazData.LdapBaseDn, fazData.LdapBindUser, fazData.LdapBindPass)
+		adSearchResult, err := ldap.LdapBindAndSearch(user.Username, ldapData.LdapFqdn, ldapData.LdapBaseDn, ldapData.LdapBindUser, ldapData.LdapBindPass)
 		if err != nil {
 			log.Fatal("FAILED: to Fetch AD Full Username:\n\t", err)
 		}
