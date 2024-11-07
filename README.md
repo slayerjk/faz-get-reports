@@ -1,6 +1,12 @@
 <h1>FortiAnalyzer(FAZ) Get Reports</h1>
 
-<p>For data program uses "data/faz-data.json"(FAZ creds)."data/users.csv". Edit & rename "BLANK" files correspondingly.</p>
+As data input program uses:
+* "data/faz-data.json" - FAZ creds
+* "data/ldap-data.json" - LDAP data to get users' displayname attribute to process FAZ reports
+* "data/naumen-data.json" - HD Naumen data to automate ticket processing, mode 'naumen'
+* "data/users.csv" - users data for 'csv' mode
+
+There are BLANK files in 'data' dir. Edit & rename "BLANK" files correspondingly or create new.
 
 Flags are: 
     * mode('csv' or 'db'(default)), 
@@ -20,10 +26,6 @@ So you need to have FAZ api user creds & AD bind account to read AD tree for use
 Here is example of json used for FAZ API:
 ```
 {
-    "ldap-bind-user": "<LDAP BIND USER>",
-    "ldap-bind-pass": "<LDAP BIND USER'S PASS",
-    "ldap-fqdn": "<DOMAIN FQDN>",
-    "ldap-basedn": "DC=DOMAIN,DC=EXAMPLE,DC=COM",
     "faz-url": "https://<YOUR FAZ DOMAIN>/jsonrpc",
     "api-user": "<FAZ API USER>",
     "api-user-pass": "<FAZ API USER PASS>",
@@ -43,7 +45,29 @@ Here is example of json used for FAZ API:
 }
 ```
 
-<h3>Using CSV</h3>
+<h3>LDAP Data Json</h3>
+
+Here is example of json used for LDAP:
+```
+{
+    "ldap-bind-user": "<LDAP BIND USER>",
+    "ldap-bind-pass": "<LDAP BIND USER'S PASS",
+    "ldap-fqdn": "<DOMAIN FQDN>",
+    "ldap-basedn": "DC=DOMAIN,DC=EXAMPLE,DC=COM",
+}
+```
+
+<h3>Naumen Data Json</h3>
+
+Here is example of json used for HD Naumen API:
+```
+{
+    "naumen-base-url": "https://YOUR-NAUMEN-BASE-URL",
+    "naumen-access-key": "YOUR NAUMEN API ACCESS KEY"
+}
+```
+
+<h3>mode 'csv' - Using CSV</h3>
 
 In users.csv first column is AD displayName attribute(Full user name). So for FAZ script must use sAMAccountName - need to use LDAP to get this.
 
@@ -55,7 +79,7 @@ Surname N.P._DD-MM-YYYY-T-hh-mm-ss_DD-MM-YYYY-T-hh-mm-ss
   * P. for Patronymic(may be blank)
   * DD-MM-YYYY-T-hh-mm-ss - datetime from start to end
 
-<h3>Using HD Naumen API and Sqlite3 DB</h3>
+<h3>mode 'naumen' - Using HD Naumen API and Sqlite3 DB</h3>
 
 Program uses Sqlite3 DB. It must be located in project root's 'data' directory and called 'data.db'.
 
@@ -81,7 +105,7 @@ data_BLANK.db - is just empty DB with stucture described above. Rename it to dat
 
 <h2>Workflow</h2>
 
-<h3>mode 'db'</h3>
+<h3>mode 'naumen'</h3>
 <ol>
     <li> read data file for FAZ & LDAP creds </li>
     <li>read db entries(hd naumen tasks ids) in db and get all unprocessed</li>

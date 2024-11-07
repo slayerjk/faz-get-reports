@@ -58,7 +58,7 @@ type User struct {
 func main() {
 	// TODO: maybe refactor to be in fazrequests?
 	var (
-		logsPath         = vafswork.GetExePath() + "/logs" + "_get-faz-reports"
+		logsPath         = vafswork.GetExePath() + "/logs" + "_" + appName
 		fazDataFilePath  = vafswork.GetExePath() + "/data/faz-data.json"
 		ldapDataFilePath = vafswork.GetExePath() + "/data/ldap-data.json"
 		usersFilePath    = vafswork.GetExePath() + "/data/users.csv"
@@ -80,13 +80,13 @@ func main() {
 	)
 
 	// flags
-	logDir := flag.String("log-dir", logsPath, "set custom log dir")
+	logsDir := flag.String("log-dir", logsPath, "set custom log dir")
 	logsToKeep := flag.Int("keep-logs", 7, "set number of logs to keep after rotation")
-	mode := flag.String("mode", "db", "set program mode('csv' - use data/users.csv; 'db' - use sqlite3 data/data.db)")
+	mode := flag.String("mode", "naumen", "set program mode('csv' - use data/users.csv; 'naumen' - work with HD Naumen API & sqlite3 data/data.db &)")
 	flag.Parse()
 
 	// logging
-	logFile, err := logging.StartLogging(appName, *logDir, *logsToKeep)
+	logFile, err := logging.StartLogging(appName, *logsDir, *logsToKeep)
 	if err != nil {
 		log.Fatalf("failed to start logging:\n\t%s", err)
 	}
@@ -144,12 +144,15 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to get list of unprocessed values in db(%s):\n\t%v", dbFile, err)
 		}
-		fmt.Println(unprocessedValues)
+		// fmt.Println(unprocessedValues)
 
 		// exit program if there are no values to process
 		if len(unprocessedValues) == 0 {
 			log.Fatalf("no values to process this time, exiting")
 		}
+
+		//TODO: get users list with dates: [surname name patronymic startdate enddate] date like(hh:mm:ss YYYY/MM/DD)
+		//
 	case "csv":
 		// READING USERS FILE
 		usersFile, errFile := os.Open(usersFilePath)
@@ -186,6 +189,7 @@ func main() {
 
 			users = append(users, user)
 		}
+		fmt.Println(users)
 	}
 
 	os.Exit(0)
@@ -293,7 +297,7 @@ func main() {
 	// close logfile and rotate logs
 	logFile.Close()
 
-	if err := vafswork.RotateFilesByMtime(*logDir, *logsToKeep); err != nil {
+	if err := vafswork.RotateFilesByMtime(*logsDir, *logsToKeep); err != nil {
 		log.Fatalf("failed to rotate logs:\n\t%s", err)
 	}
 }
