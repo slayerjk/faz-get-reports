@@ -1,0 +1,6 @@
+{
+    "ldap-bind-user": "<LDAP BIND USER>",
+    "ldap-bind-pass": "<LDAP BIND USER'S PASS",
+    "ldap-fqdn": "<DOMAIN FQDN>",
+    "ldap-basedn": "DC=DOMAIN,DC=EXAMPLE,DC=COM"
+}

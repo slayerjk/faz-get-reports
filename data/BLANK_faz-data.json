@@ -1,0 +1,22 @@
+{
+    "ldap-bind-user": "<LDAP BIND USER>",
+    "ldap-bind-pass": "<LDAP BIND USER'S PASS",
+    "ldap-fqdn": "<DOMAIN FQDN>",
+    "ldap-basedn": "DC=DOMAIN,DC=EXAMPLE,DC=COM",
+    "faz-url": "https://<YOUR FAZ DOMAIN>/jsonrpc",
+    "api-user": "<FAZ API USER>",
+    "api-user-pass": "<FAZ API USER PASS>",
+    "faz-adom": "<FAZ ADOM>",
+    "faz-device": "<FAZ DEVICE NAME>",
+    "faz-report-name": "<FAZ REPORT NAME(FOR LAYOUT)",
+    "faz-datasets": [
+        {
+            "dataset": "<FAZ DATASET NAME>",
+            "dataset-query": "<FAZ DATASET QUERY>"
+        },
+        {
+            "dataset": "<FAZ DATASET NAME>",
+            "dataset-query": "<FAZ DATASET QUERY>"
+        }
+    ]
+}
