@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -18,7 +19,6 @@ import (
 	logging "github.com/slayerjk/faz-get-reports/internal/logging"
 	"github.com/slayerjk/faz-get-reports/internal/vafswork"
 	// "github.com/slayerjk/faz-get-reports/internal/mailing"
-	// "github.com/slayerjk/faz-get-reports/internal/hd-naumen-api"
 )
 
 const (
@@ -48,26 +48,37 @@ type ldapData struct {
 	LdapBaseDn   string `json:"ldap-basedn"`
 }
 
+type naumenData struct {
+	NaumenBaseUrl   string `json:"naumen-base-url"`
+	NaumenAccessKey string `json:"naumen-access-key"`
+}
+
 type User struct {
 	Username     string
 	StartDate    string
 	EndDate      string
 	UserInitials string
+	// Fields below is only for mode 'naumen'
+	DBId        string
+	ServiceCall string
+	RP          string
 }
 
 func main() {
 	// TODO: maybe refactor to be in fazrequests?
 	var (
-		logsPath         = vafswork.GetExePath() + "/logs" + "_" + appName
-		fazDataFilePath  = vafswork.GetExePath() + "/data/faz-data.json"
-		ldapDataFilePath = vafswork.GetExePath() + "/data/ldap-data.json"
-		usersFilePath    = vafswork.GetExePath() + "/data/users.csv"
-		resultsPath      = vafswork.GetExePath() + "/Reports"
-		dbFile           = vafswork.GetExePath() + "/data/data.db"
+		logsPath           = vafswork.GetExePath() + "/logs" + "_" + appName
+		fazDataFilePath    = vafswork.GetExePath() + "/data/faz-data.json"
+		ldapDataFilePath   = vafswork.GetExePath() + "/data/ldap-data.json"
+		naumenDataFilePath = vafswork.GetExePath() + "/data/naumen-data.json"
+		usersFilePath      = vafswork.GetExePath() + "/data/users.csv"
+		resultsPath        = vafswork.GetExePath() + "/Reports"
+		dbFile             = vafswork.GetExePath() + "/data/data.db"
 		// mailingFile   = vafswork.GetExePath() + "/data/mailing.json"
 
 		fazData         fazData
 		ldapData        ldapData
+		naumenData      naumenData
 		user            User
 		users           []User
 		sessionid       string
@@ -97,38 +108,40 @@ func main() {
 	startTime := time.Now()
 	log.Println("Program Started")
 
+	// TODO: refactor -> vafswork
 	// READING FAZ DATA FILE
 	fazDataFile, errFile := os.Open(fazDataFilePath)
 	if errFile != nil {
-		log.Fatal("FAILED: to open data-file:\n\t", errFile)
+		log.Fatal("FAILED: to open FAZ data file:\n\t", errFile)
 	}
 	defer fazDataFile.Close()
 
 	byteFazData, errRead := io.ReadAll(fazDataFile)
 	if errRead != nil {
-		log.Fatal("FAILED: to io.ReadALL", errRead)
+		log.Fatalf("FAILED: to read FAZ data file:\n\t%v", errRead)
 	}
 
 	errJsonF := json.Unmarshal(byteFazData, &fazData)
 	if errJsonF != nil {
-		log.Fatal("FAILED: to unmarshall json:\n\t", errJsonF)
+		log.Fatalf("FAILED: to unmarshall FAZ data:\n\t%v", errJsonF)
 	}
 
+	// TODO: refactor -> vafswork
 	// READING LDAP DATA FILE
 	ldapDataFile, errFile := os.Open(ldapDataFilePath)
 	if errFile != nil {
-		log.Fatal("FAILED: to open data-file:\n\t", errFile)
+		log.Fatalf("FAILED: to open LDAP data file:\n\t%v", errFile)
 	}
 	defer fazDataFile.Close()
 
 	byteLdapData, errRead := io.ReadAll(ldapDataFile)
 	if errRead != nil {
-		log.Fatal("FAILED: to io.ReadALL", errRead)
+		log.Fatalf("FAILED: to read LDAP data file:\n\t%v", errRead)
 	}
 
 	errJsonL := json.Unmarshal(byteLdapData, &ldapData)
 	if errJsonL != nil {
-		log.Fatal("FAILED: to unmarshall json:\n\t", errJsonL)
+		log.Fatalf("FAILED: to unmarshall LDAP data file:\n\t%v", errJsonL)
 	}
 
 	// CREATING REPORTS DIR IF NOT EXIST
@@ -138,7 +151,25 @@ func main() {
 
 	// different workflows for mode 'db'(default) & 'csv'
 	switch *mode {
-	case "db":
+	case "naumen":
+		// TODO: refactor -> vafswork
+		// READING NAUMEN DATA FILE
+		ldapDataFile, errFile := os.Open(naumenDataFilePath)
+		if errFile != nil {
+			log.Fatalf("FAILED: to open NAUMEN data file:\n\t%v", errFile)
+		}
+		defer fazDataFile.Close()
+
+		byteLdapData, errRead := io.ReadAll(ldapDataFile)
+		if errRead != nil {
+			log.Fatalf("FAILED: to read NAUMEN data file:\n\t%v", errRead)
+		}
+
+		errJsonL := json.Unmarshal(byteLdapData, &naumenData)
+		if errJsonL != nil {
+			log.Fatalf("FAILED: to unmarshall NAUMEN data file:\n\t%v", errJsonL)
+		}
+
 		// getting list of unporcessed values in db
 		unprocessedValues, err := dboperations.GetUnprocessedDbValues(dbFile, dbTable, dbValueColumn, dbProcessedColumn)
 		if err != nil {
@@ -151,8 +182,76 @@ func main() {
 			log.Fatalf("no values to process this time, exiting")
 		}
 
-		//TODO: get users list with dates: [surname name patronymic startdate enddate] date like(hh:mm:ss YYYY/MM/DD)
-		//
+		// loop to get all users & dates by DB unprocessedValues
+		// TODO: consider goroutine
+		for _, taskId := range unprocessedValues {
+			// sumDescription, err := naumen.GetTaskSumDescriptionAndRP(naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, taskId)
+			// if err != nil {
+			// 	log.Fatalf("failed to do getData from Naumen for '%s':\n\t%v", taskId, err)
+			// }
+			// log.Printf("found sumDescription:\n\t%v\n", sumDescription)
+			// fmt.Println(sumDescription)
+
+			// TEST: sumDescription example:
+			// "sumDescription": "<font color=\"#5f5f5f\">Укажите ФИО: <b>Surname1 Name1 Patronymic1, Surname2 Name2 Patronymic2</b>
+			//   </font><br><font color=\"#5f5f5f\">Укажите дату:: <b>02.11.2024 00:01 - 03.11.2024 23:59</b></font><br>",
+			sumDescription := []string{
+				"RP2172655",
+				"<font color=\"#5f5f5f\">Укажите ФИО: <b>Алексенцев Илья Константинович, Мамырбеков Данияр Хасенович, Марченко Максим Викторович</b></font><br><font color=\"#5f5f5f\">Укажите дату:: <b>02.11.2024 00:01 - 03.11.2024 23:59</b></font><br>",
+			}
+
+			// parse sumDescription for date
+			// we need everyting between <b></b> after 'Укажите дату::'
+			datesPattern := regexp.MustCompile(`.*?Укажите дату:+ +<b>(.*?)<\/b>.*`)
+			// result will be in 1 index of FindStringSubmatch or 'nil' if not found
+			datesSubexpr := datesPattern.FindStringSubmatch(sumDescription[1])
+			if datesSubexpr == nil {
+				log.Fatalf("failed to find dates subexpression in sumDescription of %s", taskId)
+			}
+			// next split subexpr for separate dates(start date then end date)
+			datesFound := strings.Split(datesSubexpr[1], " - ")
+			if len(datesFound) == 0 {
+				log.Fatalf("no dates in result of usersSubexpr split!")
+			}
+			// next we need to format dates to FAZ format('00:00:01 2024/08/06')
+			for ind, date := range datesFound {
+				// convert string to time.Time(02.11.2024 00:01)
+				tempDate, errT := time.Parse("02.01.2006 15:04", date)
+				if errT != nil {
+					log.Fatalf("failed to parse date string: %s", date)
+				}
+				// now format time to FAZ format
+				datesFound[ind] = tempDate.Format("15:04:05 2006/01/02")
+			}
+			fmt.Println(datesFound)
+
+			// parse sumDescription for users
+			// we need everyting between <b></b> after 'Укажите ФИО:'
+			usersNamesPattern := regexp.MustCompile(`.*?Укажите ФИО:+ +<b>(.*?)<\/b>.*`)
+			// result will be in 1 index of FindStringSubmatch or 'nil' if not found
+			usersSubexpr := usersNamesPattern.FindStringSubmatch(sumDescription[1])
+			if usersSubexpr == nil {
+				log.Fatalf("failed to find users subexpression in sumDescription of %s", taskId)
+			}
+			// next split subexpr for separate users
+			usersFound := strings.Split(usersSubexpr[1], ",")
+			if len(usersFound) == 0 {
+				log.Fatalf("no users in result of usersSubexpr split!")
+			}
+			fmt.Println(usersFound)
+
+			// forming users
+			for _, foundUser := range usersFound {
+				user.UserInitials = foundUser
+				user.StartDate = datesFound[0]
+				user.EndDate = datesFound[1]
+				user.RP = sumDescription[0]
+				user.DBId = taskId
+				user.ServiceCall = sumDescription[0]
+				// append formed user to users list
+				users = append(users, user)
+			}
+		}
 	case "csv":
 		// READING USERS FILE
 		usersFile, errFile := os.Open(usersFilePath)
@@ -189,17 +288,10 @@ func main() {
 
 			users = append(users, user)
 		}
-		fmt.Println(users)
 	}
 
+	fmt.Println(users)
 	os.Exit(0)
-
-	// TEST update value
-	// errU := dboperations.UpdDbValue(dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn, "test7", 0)
-	// if errU != nil {
-	// 	log.Fatalf("failed to update value(%s) to result(%v):\n\t%v", "test7", 1, errU)
-	// }
-	// log.Printf("succeeded to update value(%s) to result(%v):\n", "test7", 1)
 
 	// GETTING FAZ REPORT LAYOUT
 	sessionid, errS := fazrep.GetSessionid(fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
@@ -274,6 +366,7 @@ func main() {
 		}
 
 		reportFilePath = fmt.Sprintf("%s/%s_%s_%s.zip", resultsPath, user.UserInitials, repStartTime, repEndTime)
+		// TODO: if 'naumen' save to RP/DBId/SC?
 		file, err := os.Create(reportFilePath)
 		if err != nil {
 			log.Fatal("FAILED: to Create Report Blank File:\n\t", err)
@@ -288,6 +381,22 @@ func main() {
 		}
 
 		log.Printf("FINISHED: GETTING REPORT JOB: %s\n\n", user.Username)
+
+		// TODO: collect all reports by RP/DBId/ServiceCall
+		// if mode 'naumen' - attach collected reports, close ticket(set wait for acceptance)
+		if *mode == "naumen" {
+			// TODO: take responsibility on request
+
+			// TODO: attach file to RP and set 'wait for acceptance'
+
+		}
+
+		// TODO: update db value if success(change to 1 if success or 0 for failed)
+		// errU := dboperations.UpdDbValue(dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn, "test7", 0)
+		// if errU != nil {
+		// 	log.Fatalf("failed to update value(%s) to result(%v):\n\t%v", "test7", 1, errU)
+		// }
+		// log.Printf("succeeded to update value(%s) to result(%v):\n", "test7", 1)
 	}
 
 	// count & print estimated time
