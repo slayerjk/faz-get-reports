@@ -15,6 +15,7 @@ import (
 
 	"github.com/slayerjk/faz-get-reports/internal/dboperations"
 	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
+	naumen "github.com/slayerjk/faz-get-reports/internal/hd-naumen-api"
 	ldap "github.com/slayerjk/faz-get-reports/internal/ldap"
 	logging "github.com/slayerjk/faz-get-reports/internal/logging"
 	"github.com/slayerjk/faz-get-reports/internal/vafswork"
@@ -185,26 +186,28 @@ func main() {
 		// loop to get all users & dates by DB unprocessedValues
 		// TODO: consider goroutine
 		for _, taskId := range unprocessedValues {
-			// sumDescription, err := naumen.GetTaskSumDescriptionAndRP(naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, taskId)
-			// if err != nil {
-			// 	log.Fatalf("failed to do getData from Naumen for '%s':\n\t%v", taskId, err)
-			// }
-			// log.Printf("found sumDescription:\n\t%v\n", sumDescription)
-			// fmt.Println(sumDescription)
+			httpClient := naumen.NewApiInsecureClient()
+
+			sumDescription, err := naumen.GetTaskSumDescriptionAndRP(&httpClient, naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, taskId)
+			if err != nil {
+				log.Fatalf("failed to do getData from Naumen for '%s':\n\t%v", taskId, err)
+			}
+			log.Printf("found sumDescription:\n\t%v\n", sumDescription)
+			fmt.Println(sumDescription)
 
 			// TEST: sumDescription example:
 			// "sumDescription": "<font color=\"#5f5f5f\">Укажите ФИО: <b>Surname1 Name1 Patronymic1, Surname2 Name2 Patronymic2</b>
 			//   </font><br><font color=\"#5f5f5f\">Укажите дату:: <b>02.11.2024 00:01 - 03.11.2024 23:59</b></font><br>",
-			sumDescription := []string{
-				"RP2172655",
-				"<font color=\"#5f5f5f\">Укажите ФИО: <b>Алексенцев Илья Константинович, Мамырбеков Данияр Хасенович, Марченко Максим Викторович</b></font><br><font color=\"#5f5f5f\">Укажите дату:: <b>02.11.2024 00:01 - 03.11.2024 23:59</b></font><br>",
-			}
+			// sumDescription := []string{
+			// 	"RP2172655",
+			// 	"<font color=\"#5f5f5f\">Укажите ФИО: <b>Алексенцев Илья Константинович, Мамырбеков Данияр Хасенович, Марченко Максим Викторович</b></font><br><font color=\"#5f5f5f\">Укажите дату:: <b>02.11.2024 00:01 - 03.11.2024 23:59</b></font><br>",
+			// }
 
 			// parse sumDescription for date
 			// we need everyting between <b></b> after 'Укажите дату::'
 			datesPattern := regexp.MustCompile(`.*?Укажите дату:+ +<b>(.*?)<\/b>.*`)
-			// result will be in 1 index of FindStringSubmatch or 'nil' if not found
-			datesSubexpr := datesPattern.FindStringSubmatch(sumDescription[1])
+			// result will be in 2 index of FindStringSubmatch or 'nil' if not found
+			datesSubexpr := datesPattern.FindStringSubmatch(sumDescription[2])
 			if datesSubexpr == nil {
 				log.Fatalf("failed to find dates subexpression in sumDescription of %s", taskId)
 			}
@@ -228,8 +231,8 @@ func main() {
 			// parse sumDescription for users
 			// we need everyting between <b></b> after 'Укажите ФИО:'
 			usersNamesPattern := regexp.MustCompile(`.*?Укажите ФИО:+ +<b>(.*?)<\/b>.*`)
-			// result will be in 1 index of FindStringSubmatch or 'nil' if not found
-			usersSubexpr := usersNamesPattern.FindStringSubmatch(sumDescription[1])
+			// result will be in 2 index of FindStringSubmatch or 'nil' if not found
+			usersSubexpr := usersNamesPattern.FindStringSubmatch(sumDescription[2])
 			if usersSubexpr == nil {
 				log.Fatalf("failed to find users subexpression in sumDescription of %s", taskId)
 			}
@@ -242,10 +245,10 @@ func main() {
 
 			// forming users
 			for _, foundUser := range usersFound {
-				user.UserInitials = foundUser
+				user.UserInitials = strings.Trim(foundUser, " ")
 				user.StartDate = datesFound[0]
 				user.EndDate = datesFound[1]
-				user.RP = sumDescription[0]
+				user.RP = sumDescription[1]
 				user.DBId = taskId
 				user.ServiceCall = sumDescription[0]
 				// append formed user to users list
@@ -290,7 +293,7 @@ func main() {
 		}
 	}
 
-	fmt.Println(users)
+	fmt.Printf("%+v\n", users)
 	os.Exit(0)
 
 	// GETTING FAZ REPORT LAYOUT
@@ -380,24 +383,27 @@ func main() {
 			log.Fatal("FAILED: to Sync Written Report File:\n\t", err)
 		}
 
-		log.Printf("FINISHED: GETTING REPORT JOB: %s\n\n", user.Username)
+		log.Printf("FINISHED: GETTING REPORT JOB: %s(Naumen RP = %s)\n\n", user.Username, user.RP)
 
-		// TODO: collect all reports by RP/DBId/ServiceCall
-		// if mode 'naumen' - attach collected reports, close ticket(set wait for acceptance)
-		if *mode == "naumen" {
-			// TODO: take responsibility on request
+		//TODO: add data to RP struct/map
 
-			// TODO: attach file to RP and set 'wait for acceptance'
-
-		}
-
-		// TODO: update db value if success(change to 1 if success or 0 for failed)
-		// errU := dboperations.UpdDbValue(dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn, "test7", 0)
-		// if errU != nil {
-		// 	log.Fatalf("failed to update value(%s) to result(%v):\n\t%v", "test7", 1, errU)
-		// }
-		// log.Printf("succeeded to update value(%s) to result(%v):\n", "test7", 1)
 	}
+
+	// TODO: collect all reports by RP/DBId/ServiceCall
+	// if mode 'naumen' - attach collected reports, close ticket(set wait for acceptance)
+	if *mode == "naumen" {
+		// TODO: take responsibility on request
+
+		// TODO: attach file to RP and set 'wait for acceptance'
+
+	}
+
+	// TODO: update db value if success(change to 1 if success or 0 for failed)
+	// errU := dboperations.UpdDbValue(dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn, "test7", 0)
+	// if errU != nil {
+	// 	log.Fatalf("failed to update value(%s) to result(%v):\n\t%v", "test7", 1, errU)
+	// }
+	// log.Printf("succeeded to update value(%s) to result(%v):\n", "test7", 1)
 
 	// count & print estimated time
 	endTime := time.Now()
