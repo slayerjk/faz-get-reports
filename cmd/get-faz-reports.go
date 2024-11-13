@@ -270,7 +270,7 @@ func main() {
 				users = append(users, user)
 
 				// fill up summary for Naumen data
-				naumenSummary[user.RP] = map[string][]string{user.ServiceCall: {}}
+				naumenSummary[user.ServiceCall] = map[string][]string{user.RP: {}}
 			}
 		}
 	case "csv":
@@ -325,7 +325,10 @@ func main() {
 	}
 
 	// STARTING GETTING REPORT LOOP
-	log.Printf("Users data to process in FAZ:\n\t%+v", users)
+	log.Println("Users data to process in FAZ:")
+	for user := range users {
+		log.Printf("\t%v\n", user)
+	}
 
 	for _, user := range users {
 		log.Printf("STARTED: GETTING REPORT JOB: %s\n", user.Username)
@@ -420,22 +423,31 @@ func main() {
 		}
 
 		// fill up summary for Naumen data
-		naumenSummary[user.RP][user.ServiceCall] = append(naumenSummary[user.RP][user.ServiceCall], reportFilePath)
+		naumenSummary[user.ServiceCall][user.RP] = append(naumenSummary[user.ServiceCall][user.RP], reportFilePath)
 
 		log.Printf("FINISHED: GETTING REPORT JOB: %s(Naumen RP = %s)\n\n", user.Username, user.RP)
 	}
 
 	// if mode 'naumen' - attach collected reports, close ticket(set wait for acceptance)
 	if *mode == "naumen" {
-		fmt.Println(naumenSummary)
-		log.Printf("Collected task data for Naumen RP:\n\t%+v\n", naumenSummary)
-		os.Exit(0)
+		log.Println("Collected task data for Naumen RP:")
+		for k := range naumenSummary {
+			log.Printf("\t%v\n", k)
+		}
+
 		// TODO: take responsibility on request
-		for rp, _ := range naumenSummary {
-			for sc, _ := range naumenSummary[rp] {
-				// TODO: take responsibility on Naumen task(takeSCResponsibility)
-				fmt.Println(sc)
+		for sc := range naumenSummary {
+			log.Printf("STARTED: take responsibility on Naumen ticket: %s", naumenSummary[sc])
+
+			// making http client
+			httpClient := naumen.NewApiInsecureClient()
+
+			errT := naumen.TakeSCResponsibility(&httpClient, naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, sc)
+			if errT != nil {
+				log.Fatalf("FAILURE: take responsibility on Naumen ticket(%s):\n\t%v", naumenSummary[sc], errT)
 			}
+
+			log.Printf("FINISHED: take responsibility on Naumen ticket: %s", naumenSummary[sc])
 		}
 		// TODO: attach file to RP and set 'wait for acceptance'
 

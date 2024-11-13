@@ -152,3 +152,32 @@ func GetTaskSumDescriptionAndRP(c *http.Client, baseUrl, accessKey, taskId strin
 
 	return result, nil
 }
+
+// Take responsibility on Naumen ticket(GET)
+//
+// Example of request:
+//
+// https://{{base_url}}/gateway/services/rest/takeSCResponsibility?accessKey={{accessKey}}&params='{{serviceCall}}',user
+func TakeSCResponsibility(c *http.Client, baseUrl, accessKey, serviceCall string) error {
+	// form request URL
+	requestURL := fmt.Sprintf("%s/gateway/services/rest/takeSCResponsibility?accessKey=%s&params='%s',user", baseUrl, accessKey, serviceCall)
+
+	// form GET request
+	request, errReq := http.NewRequest(http.MethodGet, requestURL, nil)
+	if errReq != nil {
+		return fmt.Errorf("failed to form TakeSCResponsibility request:\n\t%v", errReq)
+	}
+
+	// making request
+	response, errResp := c.Do(request)
+	if errResp != nil {
+		return fmt.Errorf("failed to make TakeSCResponsibility request:\n\t%v\n\t%s", errResp, requestURL)
+	}
+
+	// checking response status code: must be 200
+	if response.StatusCode != 200 && response.StatusCode != 202 {
+		return fmt.Errorf("check TakeSCResponsibility status: %v", response.Status)
+	}
+
+	return nil
+}
