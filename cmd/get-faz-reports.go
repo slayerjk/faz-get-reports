@@ -270,7 +270,7 @@ func main() {
 				users = append(users, user)
 
 				// fill up summary for Naumen data
-				naumenSummary[user.ServiceCall] = map[string][]string{user.RP: {}}
+				naumenSummary[user.ServiceCall] = map[string][]string{user.RP: {taskId}}
 			}
 		}
 	case "csv":
@@ -326,7 +326,7 @@ func main() {
 
 	// STARTING GETTING REPORT LOOP
 	log.Println("Users data to process in FAZ:")
-	for user := range users {
+	for _, user := range users {
 		log.Printf("\t%v\n", user)
 	}
 
@@ -431,34 +431,52 @@ func main() {
 	// if mode 'naumen' - attach collected reports, close ticket(set wait for acceptance)
 	if *mode == "naumen" {
 		log.Println("Collected task data for Naumen RP:")
-		for k := range naumenSummary {
-			log.Printf("\t%v\n", k)
+		for sc, val := range naumenSummary {
+			log.Printf("\t%v: %v\n", sc, val)
 		}
 
-		// TODO: take responsibility on request
+		// take responsibility on request, attach files and set acceptance
+		log.Println("STARTED: take responsibility and attach collected reports to Naumen ticket")
 		for sc := range naumenSummary {
-			log.Printf("STARTED: take responsibility on Naumen ticket: %s", naumenSummary[sc])
-
 			// making http client
 			httpClient := naumen.NewApiInsecureClient()
+
+			// take responsibility on request
+			log.Printf("STARTED: take responsibility on Naumen ticket: %s", sc)
 
 			errT := naumen.TakeSCResponsibility(&httpClient, naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, sc)
 			if errT != nil {
 				log.Fatalf("FAILURE: take responsibility on Naumen ticket(%s):\n\t%v", naumenSummary[sc], errT)
 			}
 
+			log.Printf("FINISHED: take responsibility on Naumen ticket: %s\n", naumenSummary[sc])
+
+			// attach files to RP and set acceptance
+			for rp, files := range naumenSummary[sc] {
+				log.Printf("STARTED: attaching files to ticket and set acceptance(%s)", rp)
+
+				// for files skip 0 index, because it's dataID
+				errA := naumen.AttachFilesAndSetAcceptance(&httpClient, naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, sc, files[1:])
+				if errA != nil {
+					log.Fatalf("FAILURE: attaching files to ticket and set acceptance(%s):\n\t%v", rp, errA)
+				}
+
+				log.Printf("FINISHED: attaching files to ticket and set acceptance(%s)", rp)
+			}
+
 			log.Printf("FINISHED: take responsibility on Naumen ticket: %s", naumenSummary[sc])
+
 		}
-		// TODO: attach file to RP and set 'wait for acceptance'
 
+		log.Println("FINISHED: take responsibility and attach collected reports to Naumen ticket")
+
+		// TODO: update db value if success(change to 1 if success or 0 for failure)
+		// errU := dboperations.UpdDbValue(dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn, "test7", 0)
+		// if errU != nil {
+		// 	log.Fatalf("failure to update value(%s) to result(%v):\n\t%v", "test7", 1, errU)
+		// }
+		// log.Printf("succeeded to update value(%s) to result(%v):\n", "test7", 1)
 	}
-
-	// TODO: update db value if success(change to 1 if success or 0 for failure)
-	// errU := dboperations.UpdDbValue(dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn, "test7", 0)
-	// if errU != nil {
-	// 	log.Fatalf("failure to update value(%s) to result(%v):\n\t%v", "test7", 1, errU)
-	// }
-	// log.Printf("succeeded to update value(%s) to result(%v):\n", "test7", 1)
 
 	// count & print estimated time
 	endTime := time.Now()

@@ -1,11 +1,15 @@
 package hdnaumenapi
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -72,9 +76,10 @@ func GetServiceCallAndRP(c *http.Client, baseUrl, accessKey, taskId string) ([]s
 	if errResp != nil {
 		return nil, fmt.Errorf("failed to make request of getData:\n\t%v", errResp)
 	}
+	defer response.Body.Close()
 
 	// response status must be 200
-	if response.StatusCode != 200 {
+	if response.StatusCode != 200 && response.StatusCode != 202 {
 		return nil, fmt.Errorf("bad response status code of getData: %v", response.Status)
 	}
 
@@ -128,9 +133,10 @@ func GetTaskSumDescriptionAndRP(c *http.Client, baseUrl, accessKey, taskId strin
 	if errR != nil {
 		return nil, fmt.Errorf("failed to make request to get task details:\n\t%v", errR)
 	}
+	defer response.Body.Close()
 
 	// response status must be 200
-	if response.StatusCode != 200 {
+	if response.StatusCode != 200 && response.StatusCode != 202 {
 		return nil, fmt.Errorf("bad response status code of get task details: %v", response.Status)
 	}
 
@@ -173,10 +179,80 @@ func TakeSCResponsibility(c *http.Client, baseUrl, accessKey, serviceCall string
 	if errResp != nil {
 		return fmt.Errorf("failed to make TakeSCResponsibility request:\n\t%v\n\t%s", errResp, requestURL)
 	}
+	defer response.Body.Close()
 
 	// checking response status code: must be 200
 	if response.StatusCode != 200 && response.StatusCode != 202 {
 		return fmt.Errorf("check TakeSCResponsibility status: %v", response.Status)
+	}
+
+	return nil
+}
+
+// Attach list of files to Naumen task and set 'ready for acceptance'
+//
+// Request URL example:
+//
+// https://{{base_url}}/gateway/services/rest/waitingForAccept?accessKey={{accessKey}}&params='{{serviceCall}}',request,user
+//
+// body form-data example:
+//
+// procCodeclose(TEXT; Resolved) = catalogs$28411
+// soluteion(TEXT) = text
+// files(FILE) = files
+func AttachFilesAndSetAcceptance(c *http.Client, baseURL, accessKey, serviceCall string, files []string) error {
+	// form request URL
+	requestURL := fmt.Sprintf("%s/gateway/services/rest/waitingForAccept?accessKey=%s&params='%s',request,user", baseURL, accessKey, serviceCall)
+
+	// forming body
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// dataForm := url.Values{
+	// 	"procCodeClose": {"catalogs$28411"},
+	// 	"solution":      {"Запрос  исполнен, результат во вложении!"},
+	// 	"files":         {strings.Join(files, ",")},
+	// }
+	// requestBody := strings.NewReader(dataForm.Encode())
+	writer.WriteField("procCodeClose", "catalogs$28411")
+	writer.WriteField("solution", "Запрос  исполнен, результат во вложении!")
+
+	for _, path := range files {
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open path(%s):\n\t%v", path, err)
+		}
+		defer file.Close()
+
+		part, err := writer.CreateFormFile("files", filepath.Base(path))
+		if err != nil {
+			return fmt.Errorf("failed to CreateFormFile path(%s):\n\t%v", path, err)
+		}
+
+		_, err = io.Copy(part, file)
+	}
+	err := writer.Close()
+	if err != nil {
+		return err
+	}
+
+	// forming request
+	request, errReq := http.NewRequest(http.MethodPost, requestURL, body)
+	if errReq != nil {
+		return fmt.Errorf("failed to form AttachFilesAndSetAcceptance request:\n\t%v", errReq)
+	}
+	request.Header.Add("Content-Type", "multipart/form-data")
+
+	// making request
+	response, errResp := c.Do(request)
+	if errResp != nil {
+		return fmt.Errorf("failed to make AttachFilesAndSetAcceptance request:\n\t%v", errResp)
+	}
+	defer response.Body.Close()
+
+	// checking status
+	if response.StatusCode != 200 && response.StatusCode != 202 {
+		return fmt.Errorf("bad response status code of AttachFilesAndSetAcceptance: %v", response.Status)
 	}
 
 	return nil
