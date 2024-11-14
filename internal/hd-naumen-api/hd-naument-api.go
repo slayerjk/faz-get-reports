@@ -205,8 +205,8 @@ func AttachFilesAndSetAcceptance(c *http.Client, baseURL, accessKey, serviceCall
 	requestURL := fmt.Sprintf("%s/gateway/services/rest/waitingForAccept?accessKey=%s&params='%s',request,user", baseURL, accessKey, serviceCall)
 
 	// forming body
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
 
 	// dataForm := url.Values{
 	// 	"procCodeClose": {"catalogs$28411"},
@@ -214,9 +214,8 @@ func AttachFilesAndSetAcceptance(c *http.Client, baseURL, accessKey, serviceCall
 	// 	"files":         {strings.Join(files, ",")},
 	// }
 	// requestBody := strings.NewReader(dataForm.Encode())
-	writer.WriteField("procCodeClose", "catalogs$28411")
-	writer.WriteField("solution", "Запрос  исполнен, результат во вложении!")
 
+	// write files to body
 	for _, path := range files {
 		file, err := os.Open(path)
 		if err != nil {
@@ -231,17 +230,23 @@ func AttachFilesAndSetAcceptance(c *http.Client, baseURL, accessKey, serviceCall
 
 		_, err = io.Copy(part, file)
 	}
+
+	// write fields to body
+	writer.WriteField("procCodeClose", "catalogs$28411")
+	writer.WriteField("solution", "Запрос  исполнен, результат во вложении!")
+
+	// close form data
 	err := writer.Close()
 	if err != nil {
 		return err
 	}
 
 	// forming request
-	request, errReq := http.NewRequest(http.MethodPost, requestURL, body)
+	request, errReq := http.NewRequest(http.MethodPost, requestURL, &body)
 	if errReq != nil {
 		return fmt.Errorf("failed to form AttachFilesAndSetAcceptance request:\n\t%v", errReq)
 	}
-	request.Header.Add("Content-Type", "multipart/form-data")
+	request.Header.Add("Content-Type", writer.FormDataContentType())
 
 	// making request
 	response, errResp := c.Do(request)

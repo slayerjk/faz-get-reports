@@ -348,10 +348,10 @@ func main() {
 		log.Printf("User's sAMAccountName found: %s", sAMAccountName)
 
 		// GETTING SESSIONID
-		sessionid, err := fazrep.GetSessionid(fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
-		if err != nil {
-			log.Fatal("FAILURE: to get sessionid\n\t", err)
-		}
+		// sessionid, err := fazrep.GetSessionid(fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
+		// if err != nil {
+		// 	log.Fatal("FAILURE: to get sessionid\n\t", err)
+		// }
 
 		// UPDATING DATASETS QUERIE
 		errUpdDataset := fazrep.UpdateDatasets(fazData.FazUrl, sessionid, fazData.FazAdom, sAMAccountName, fazData.FazDatasets)
