@@ -123,7 +123,7 @@ func main() {
 	fazDataFile, errFile := os.Open(fazDataFilePath)
 	if errFile != nil {
 		// report error
-		errorDataFile := fmt.Sprintf("FAILURE: open FAZ data file:\n\t", errFile)
+		errorDataFile := fmt.Sprintf("FAILURE: open FAZ data file:\n\t%v", errFile)
 		mailing.SendPlainEmailWoAuth(mailingFile, "error", appName, []byte(errorDataFile))
 		log.Fatal(errorDataFile)
 	}
@@ -175,7 +175,7 @@ func main() {
 	// CREATING REPORTS DIR IF NOT EXIST
 	if err := os.MkdirAll(resultsPath, os.ModePerm); err != nil {
 		// report error
-		errorMkdirResults := fmt.Sprintf("FAILURE: create reports dir", err)
+		errorMkdirResults := fmt.Sprintf("FAILURE: create reports dir(%s):\n\t%v", resultsPath, err)
 		mailing.SendPlainEmailWoAuth(mailingFile, "error", appName, []byte(errorMkdirResults))
 		log.Fatal(errorMkdirResults)
 	}
@@ -337,7 +337,7 @@ func main() {
 
 		if errFile != nil {
 			// report error
-			errorCsvFile := fmt.Sprintf("FAILURE: open users file(%s):\n\t", usersFile, errFile)
+			errorCsvFile := fmt.Sprintf("FAILURE: open users file(%s):\n\t%v", usersFile.Name(), errFile)
 			mailing.SendPlainEmailWoAuth(mailingFile, "error", appName, []byte(errorCsvFile))
 			log.Fatal(errorCsvFile)
 		}
@@ -427,7 +427,7 @@ func main() {
 		errUpdDataset := fazrep.UpdateDatasets(fazData.FazUrl, sessionid, fazData.FazAdom, sAMAccountName, fazData.FazDatasets)
 		if errUpdDataset != nil {
 			// report error
-			errorFazDatasetUpd := fmt.Sprintf("FAILURE: to update FAZ datasets:\n\t", errUpdDataset)
+			errorFazDatasetUpd := fmt.Sprintf("FAILURE: to update FAZ datasets:\n\t%v", errUpdDataset)
 			mailing.SendPlainEmailWoAuth(mailingFile, "error", appName, []byte(errorFazDatasetUpd))
 			log.Fatal(errorFazDatasetUpd)
 		}
