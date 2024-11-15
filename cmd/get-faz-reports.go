@@ -194,7 +194,7 @@ func main() {
 		}
 		defer naumenDataFile.Close()
 
-		byteNaumenData, errRead := io.ReadAll(ldapDataFile)
+		byteNaumenData, errRead := io.ReadAll(naumenDataFile)
 		if errRead != nil {
 			// report error
 			errorNaumenDataRead := fmt.Sprintf("FAILURE: read NAUMEN data file:\n\t%v", errRead)
