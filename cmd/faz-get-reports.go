@@ -118,7 +118,6 @@ func main() {
 		cmdOutput []byte
 		errOutput error
 	)
-
 	switch runtime.GOOS {
 	case "windows":
 		cmd := exec.Command("powershell", "Get-Process", appName)
@@ -135,16 +134,12 @@ func main() {
 	default:
 		log.Fatalf("FAILURE: platform doesn't supported: %s", runtime.GOOS)
 	}
-
-	// searching if there is more than one process instances
+	// searching if there are more than one process of running app(based on appName)
 	searchProcessRegexp := regexp.MustCompile(appName)
 	searchProcessResult := searchProcessRegexp.FindAll(cmdOutput, -1)
-
 	if len(searchProcessResult) > 1 {
 		log.Fatalf("the application is already running(%d processes found), skipping this time:\n\t%s", len(searchProcessResult), string(cmdOutput))
 	}
-
-	os.Exit(0)
 
 	// create map for Naumen RP data(RP, SC, files report)
 	naumenSummary := make(map[string]map[string][]string)
