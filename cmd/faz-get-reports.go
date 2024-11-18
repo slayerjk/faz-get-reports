@@ -22,6 +22,7 @@ import (
 	logging "github.com/slayerjk/faz-get-reports/internal/logging"
 	"github.com/slayerjk/faz-get-reports/internal/mailing"
 	"github.com/slayerjk/faz-get-reports/internal/vafswork"
+	"github.com/slayerjk/faz-get-reports/internal/vawebwork"
 )
 
 const (
@@ -259,7 +260,7 @@ func main() {
 		// loop to get all users & dates by DB unprocessedValues
 		// TODO: consider goroutine
 		for _, taskId := range unprocessedValues {
-			httpClient := naumen.NewApiInsecureClient()
+			httpClient := vawebwork.NewInsecureClient()
 
 			sumDescription, err := naumen.GetTaskSumDescriptionAndRP(&httpClient, naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, taskId)
 			if err != nil {
@@ -568,7 +569,7 @@ func main() {
 		// take responsibility on request, attach files and set acceptance
 		for sc := range naumenSummary {
 			// making http client
-			httpClient := naumen.NewApiInsecureClient()
+			httpClient := vawebwork.NewInsecureClient()
 
 			// take responsibility on request
 			log.Printf("STARTED: take responsibility on Naumen ticket: %s", sc)

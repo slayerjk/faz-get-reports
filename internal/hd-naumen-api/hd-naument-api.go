@@ -2,7 +2,6 @@ package hdnaumenapi
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 // response struct for json body of getData
@@ -31,23 +29,6 @@ type getDataResponse struct {
 // response struct for json body of getData
 type getTaskDetailsResponse struct {
 	SumDescription string `json:"sumDescription"`
-}
-
-// http(api) client(insecure)
-func NewApiInsecureClient() http.Client {
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true,
-	}
-
-	transport := &http.Transport{
-		TLSClientConfig: tlsConfig,
-		MaxIdleConns:    10,
-		IdleConnTimeout: 30 & time.Second,
-	}
-
-	client := &http.Client{Transport: transport}
-
-	return *client
 }
 
 // Get ServiceCall and task id(RP) based on data parameter
