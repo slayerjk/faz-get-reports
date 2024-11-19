@@ -11,7 +11,8 @@ There are BLANK files in 'data' dir. Edit & rename "BLANK" files correspondingly
 Flags are: 
     * mode('csv' or 'db'(default)), 
     * log-dir(custom log-dir; logs_get-faz-reports is default), 
-    * keep-logs(number of logs to keep, 7 is default)
+    * keep-logs(number of logs to keep, 7 is default),
+    * m(mailing on, use 'data/mailing.json')
 
 <h2>Description</h2>
 
