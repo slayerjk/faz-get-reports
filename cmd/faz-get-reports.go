@@ -149,6 +149,9 @@ func main() {
 	startTime := time.Now()
 	log.Println("Program Started")
 
+	// making http client for FAZ/HD Naumen request
+	httpClient := vawebwork.NewInsecureClient()
+
 	// TODO: refactor -> vafswork
 	// READING FAZ DATA FILE
 	fazDataFile, errFile := os.Open(fazDataFilePath)
@@ -260,8 +263,6 @@ func main() {
 		// loop to get all users & dates by DB unprocessedValues
 		// TODO: consider goroutine
 		for _, taskId := range unprocessedValues {
-			httpClient := vawebwork.NewInsecureClient()
-
 			sumDescription, err := naumen.GetTaskSumDescriptionAndRP(&httpClient, naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, taskId)
 			if err != nil {
 				// report error
@@ -406,7 +407,7 @@ func main() {
 	//fmt.Printf("%v", users)
 
 	// GETTING FAZ REPORT LAYOUT
-	sessionid, errS := fazrep.GetSessionid(fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
+	sessionid, errS := fazrep.GetSessionid(&httpClient, fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
 	if errS != nil {
 		// report error
 		errorFazSessionid := fmt.Sprintf("FAILURE: get FAZ sessionid\n\t%v", errS)
@@ -414,7 +415,7 @@ func main() {
 		log.Fatal(errorFazSessionid)
 	}
 
-	fazReportLayout, errLayout := fazrep.GetFazReportLayout(fazData.FazUrl, sessionid, fazData.FazAdom, fazData.FazReportName)
+	fazReportLayout, errLayout := fazrep.GetFazReportLayout(&httpClient, fazData.FazUrl, sessionid, fazData.FazAdom, fazData.FazReportName)
 	if err != nil {
 		// report error
 		errorFazRepLayout := fmt.Sprintf("FAILURE: get FAZ report layout:\n\t%v", errLayout)
@@ -455,7 +456,7 @@ func main() {
 		// log.Fatal(errorFazSessionid)
 
 		// UPDATING DATASETS QUERY
-		errUpdDataset := fazrep.UpdateDatasets(fazData.FazUrl, sessionid, fazData.FazAdom, sAMAccountName, fazData.FazDatasets)
+		errUpdDataset := fazrep.UpdateDatasets(&httpClient, fazData.FazUrl, sessionid, fazData.FazAdom, sAMAccountName, fazData.FazDatasets)
 		if errUpdDataset != nil {
 			// report error
 			errorFazDatasetUpd := fmt.Sprintf("FAILURE: to update FAZ datasets:\n\t%v", errUpdDataset)
@@ -466,7 +467,7 @@ func main() {
 		// STARTING REPORT
 		log.Printf("STARTED: running FAZ report job: %s\n", user.Username)
 
-		repId, err := fazrep.StartReport(fazData.FazUrl, fazData.FazAdom, fazData.FazDevice, sessionid, user.StartDate, user.EndDate, fazReportLayout)
+		repId, err := fazrep.StartReport(&httpClient, fazData.FazUrl, fazData.FazAdom, fazData.FazDevice, sessionid, user.StartDate, user.EndDate, fazReportLayout)
 		if err != nil {
 			// report error
 			errorFazReportStart := fmt.Sprintf("FAILURE: to start FAZ report:\n\t%v", err)
@@ -477,7 +478,7 @@ func main() {
 		// DOWNLOADING PDF REPORT
 		log.Printf("STARTED: downloading for %s\n", user.Username)
 
-		repData, err := fazrep.DownloadPdfReport(fazData.FazUrl, fazData.FazAdom, sessionid, repId)
+		repData, err := fazrep.DownloadPdfReport(&httpClient, fazData.FazUrl, fazData.FazAdom, sessionid, repId)
 		if err != nil {
 			// report error
 			errorFazReportDownload := fmt.Sprintf("FAILURE: dowonload FAZ report:\n\t%v", err)
@@ -568,9 +569,6 @@ func main() {
 
 		// take responsibility on request, attach files and set acceptance
 		for sc := range naumenSummary {
-			// making http client
-			httpClient := vawebwork.NewInsecureClient()
-
 			// take responsibility on request
 			log.Printf("STARTED: take responsibility on Naumen ticket: %s", sc)
 

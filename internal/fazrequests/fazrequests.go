@@ -25,7 +25,7 @@ const (
 )
 
 // GET SESSION ID TO PERFORM FAZ API REQUESTS
-func GetSessionid(fazurl, apiuser, apipass string) (string, error) {
+func GetSessionid(httpClient *http.Client, fazurl, apiuser, apipass string) (string, error) {
 	/*
 		Correct Request Example:
 
@@ -140,9 +140,6 @@ func GetSessionid(fazurl, apiuser, apipass string) (string, error) {
 	}
 	requestBody := bytes.NewReader(postBody)
 
-	// CREATING HTTP CLIENT
-	httpClient := &http.Client{Transport: &http.Transport{}}
-
 	// MAKING REQUEST
 	resp, err := httpClient.Post(fazurl, contentType, requestBody)
 	if err != nil {
@@ -172,7 +169,7 @@ func GetSessionid(fazurl, apiuser, apipass string) (string, error) {
 }
 
 // GET FAZ REPORT LAYOUT BY IT'S NAME
-func GetFazReportLayout(fazurl, sessionid, adom, repName string) (int, error) {
+func GetFazReportLayout(httpClient *http.Client, fazurl, sessionid, adom, repName string) (int, error) {
 	/*
 		Correct Request Example
 
@@ -321,9 +318,6 @@ func GetFazReportLayout(fazurl, sessionid, adom, repName string) (int, error) {
 
 	reqBodyBytges := bytes.NewReader(reqBody)
 
-	// CREATING HTTP CLIENT
-	httpClient := &http.Client{Transport: &http.Transport{}}
-
 	// MAKING REQUEST & AND CHECKING IT'S CORRECT
 	resp, err := httpClient.Post(fazurl, contentType, reqBodyBytges)
 	if err != nil {
@@ -360,7 +354,7 @@ func GetFazReportLayout(fazurl, sessionid, adom, repName string) (int, error) {
 }
 
 // UPDATING DATASETS FOR REPORTS FOR CORRESPONDING USER
-func UpdateDatasets(fazurl, sessionid, adom, username string, datasets []map[string]string) error {
+func UpdateDatasets(httpClient *http.Client, fazurl, sessionid, adom, username string, datasets []map[string]string) error {
 	/*
 		Correct Request Example(EVERY CONNECT):
 
@@ -483,9 +477,6 @@ func UpdateDatasets(fazurl, sessionid, adom, username string, datasets []map[str
 		ID:      "3",
 	}
 
-	// CREATING HTTP CLIENT
-	httpClient := &http.Client{Transport: &http.Transport{}}
-
 	// ITERATING THROUGH DATASETS & UPDATE THEM
 	for _, item := range datasets {
 		// FORIMING DATASET QUERY & URL FOR REQUEST
@@ -528,7 +519,7 @@ func UpdateDatasets(fazurl, sessionid, adom, username string, datasets []map[str
 }
 
 // GETTING REPORT STATE(running/generated) TO CHECK IF IT READY TO DOWNLOAD
-func reportIsGenerated(fazurl, sessionid, adom, repId string) (string, error) {
+func reportIsGenerated(httpClient *http.Client, fazurl, sessionid, adom, repId string) (string, error) {
 	/*
 		Correct Request Example:
 
@@ -647,9 +638,6 @@ func reportIsGenerated(fazurl, sessionid, adom, repId string) (string, error) {
 		},
 	}
 
-	// CREATING HTTP CLIENT
-	httpClient := &http.Client{Transport: &http.Transport{}}
-
 	// FORMING REQUEST & MAKING REQUEST
 	reqBody, err := json.Marshal(body)
 	if err != nil {
@@ -691,7 +679,7 @@ func reportIsGenerated(fazurl, sessionid, adom, repId string) (string, error) {
 }
 
 // STARTING REPORTS PROCESSING
-func StartReport(fazurl, adom, device, sessionid, start, end string, layout int) (string, error) {
+func StartReport(httpClient *http.Client, fazurl, adom, device, sessionid, start, end string, layout int) (string, error) {
 	/*
 		Correct Request Example:
 
@@ -802,9 +790,6 @@ func StartReport(fazurl, adom, device, sessionid, start, end string, layout int)
 
 	reqBytes := bytes.NewBuffer(reqBody)
 
-	// CREATING HTTP CLIENT
-	httpClient := &http.Client{Transport: &http.Transport{}}
-
 	// MAKING REQUEST
 	resp, err := httpClient.Post(fazurl, contentType, reqBytes)
 	if err != nil {
@@ -836,7 +821,7 @@ func StartReport(fazurl, adom, device, sessionid, start, end string, layout int)
 	time.Sleep(5 * time.Second)
 
 	for {
-		repState, err := reportIsGenerated(fazurl, sessionid, adom, response.Result.Tid)
+		repState, err := reportIsGenerated(httpClient, fazurl, sessionid, adom, response.Result.Tid)
 		if err != nil {
 			return "", fmt.Errorf("error in reportIsGenerated:\n\t%v", err)
 		}
@@ -860,7 +845,7 @@ func StartReport(fazurl, adom, device, sessionid, start, end string, layout int)
 }
 
 // DOWNLOADING PDF REPORT
-func DownloadPdfReport(fazUrl, fazAdom, sessionid, repId string) (string, error) {
+func DownloadPdfReport(httpClient *http.Client, fazUrl, fazAdom, sessionid, repId string) (string, error) {
 	/*
 		Correct Request Example:
 
@@ -962,9 +947,6 @@ func DownloadPdfReport(fazUrl, fazAdom, sessionid, repId string) (string, error)
 	}
 
 	respBodyBytes := bytes.NewReader(jsonBody)
-
-	// CREATING HTTP CLIENT
-	httpClient := &http.Client{Transport: &http.Transport{}}
 
 	// 	MAKING REQUEST
 	resp, err := httpClient.Post(fazUrl, contentType, respBodyBytes)
