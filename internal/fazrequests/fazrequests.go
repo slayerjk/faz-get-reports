@@ -647,7 +647,7 @@ func reportIsGenerated(httpClient *http.Client, fazurl, sessionid, adom, repId s
 
 	resp, err := httpClient.Post(fazurl, contentType, reqBodyBytes)
 	if err != nil {
-		log.Fatal("FAILED: to Make Request(Report State):\n\t", err)
+		log.Fatal("FAILED: to Make Request - get Report State:\n\t", err)
 		return "", fmt.Errorf(errRequest, err)
 	}
 	defer resp.Body.Close()

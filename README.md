@@ -105,6 +105,8 @@ data_BLANK.db - is just empty DB with stucture described above. Rename it to dat
 
 <h2>Workflow</h2>
 
+First, progarm checks if there are more than one program instance running. If there are, than skip running.
+
 <h3>mode 'naumen'</h3>
 <ol>
     <li> read data file for FAZ & LDAP creds </li>

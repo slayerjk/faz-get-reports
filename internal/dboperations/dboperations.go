@@ -56,7 +56,7 @@ func UpdDbValue(dbFile, dbTable, dbValueColumn, dbColumnToUpd, dbProcessedDateCo
 	query := fmt.Sprintf(
 		"UPDATE %s SET %s = %d, %s = '%s' WHERE %s = '%s'",
 		dbTable, dbColumnToUpd, updTo, dbProcessedDateColumn, processedDate, dbValueColumn, valueToUpd)
-	fmt.Println(query)
+
 	result, errU := db.Exec(query)
 	if errU != nil {
 		return errU
