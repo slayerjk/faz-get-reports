@@ -834,7 +834,7 @@ func main() {
 				reportDbUPD := fmt.Sprintf("FINISHED: processing, including DBUpd: %s\n", rp)
 				// mail this error if mailing option is on
 				if *mailingOpt {
-					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(reportDbUPD))
+					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "report", appName, []byte(reportDbUPD))
 					if mailErr != nil {
 						log.Printf("failed to send email:\n\t%v", mailErr)
 					}
