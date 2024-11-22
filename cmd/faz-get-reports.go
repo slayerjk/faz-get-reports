@@ -156,7 +156,7 @@ func main() {
 
 	// starting programm notification
 	startTime := time.Now()
-	log.Println("Program Started")
+	log.Printf("-----Program '%s' Started-----\n", appName)
 
 	// making http client for FAZ/HD Naumen request
 	httpClient := vawebwork.NewInsecureClient()
@@ -757,7 +757,9 @@ func main() {
 		}
 
 		// fill up summary for Naumen data with downloaded reports file pathes
-		naumenSummary[user.ServiceCall][user.RP] = append(naumenSummary[user.ServiceCall][user.RP], reportFilePath)
+		if *mode == "naumen" {
+			naumenSummary[user.ServiceCall][user.RP] = append(naumenSummary[user.ServiceCall][user.RP], reportFilePath)
+		}
 
 		log.Printf("FINISHED: GETTING REPORT JOB: %s(Naumen RP = %s)\n\n", user.Username, user.RP)
 	}

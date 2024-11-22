@@ -646,7 +646,7 @@ func reportIsGenerated(httpClient *http.Client, fazurl, sessionid, adom, repId s
 
 	resp, err := httpClient.Post(fazurl, contentType, reqBodyBytes)
 	if err != nil {
-		return "", fmt.Errorf("failed to make req of 'reportIsGenerated':\n\t%v\nreqBody:\n%v", err, string(reqBody))
+		return "", fmt.Errorf("failed to make req of 'reportIsGenerated':\n\t%v\n\treqBody:\n\t%v", err, string(reqBody))
 	}
 	defer resp.Body.Close()
 
@@ -673,6 +673,7 @@ func reportIsGenerated(httpClient *http.Client, fazurl, sessionid, adom, repId s
 		return "", fmt.Errorf("wrong response in reportIsGenerated result:\n\t%v", string(respBody))
 	}
 
+	resp.Body.Close()
 	return result, nil
 }
 
@@ -815,18 +816,19 @@ func StartReport(httpClient *http.Client, fazurl, adom, device, sessionid, start
 	}
 
 	// WAIT 5 SEC TO BYPASS PENDING
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
+	// check if report is in 'generated' state already
 	for {
 		repState, err := reportIsGenerated(httpClient, fazurl, sessionid, adom, response.Result.Tid)
 		if err != nil {
-			return "", fmt.Errorf("error in reportIsGenerated:\n\t%v", err)
+			return "", fmt.Errorf("error in reportIsGenerated loop(check if generated):\n\t%v", err)
 		}
 
 		switch repState {
 		case "pending":
 			// log.Printf("Report is still Pending")
-			time.Sleep(5 * time.Second)
+			time.Sleep(10 * time.Second)
 			continue
 		case "running":
 			// log.Printf("Report is still Running")
