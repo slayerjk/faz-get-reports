@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"regexp"
 	"time"
@@ -162,7 +161,7 @@ func GetSessionid(httpClient *http.Client, fazurl, apiuser, apipass string) (str
 	}
 
 	if len(sessionResp.Session) == 0 {
-		return "", fmt.Errorf(errEmptyResult)
+		return "", fmt.Errorf("result is empty for Session")
 	}
 
 	return sessionResp.Session, nil
@@ -350,7 +349,7 @@ func GetFazReportLayout(httpClient *http.Client, fazurl, sessionid, adom, repNam
 		}
 	}
 
-	return 0, fmt.Errorf(errEmptyResult)
+	return 0, fmt.Errorf("result is empty for GetFazReportLayout")
 }
 
 // UPDATING DATASETS FOR REPORTS FOR CORRESPONDING USER
@@ -647,8 +646,7 @@ func reportIsGenerated(httpClient *http.Client, fazurl, sessionid, adom, repId s
 
 	resp, err := httpClient.Post(fazurl, contentType, reqBodyBytes)
 	if err != nil {
-		log.Fatal("FAILED: to Make Request - get Report State:\n\t", err)
-		return "", fmt.Errorf(errRequest, err)
+		return "", fmt.Errorf("failed to make req of 'reportIsGenerated':\n\t%v\nreqBody:\n%v", err, string(reqBody))
 	}
 	defer resp.Body.Close()
 
@@ -813,8 +811,7 @@ func StartReport(httpClient *http.Client, fazurl, adom, device, sessionid, start
 	}
 
 	if response.Result.Tid == "" {
-		log.Fatalf("FAILED: to Get RepID:\n\t%s,\n\t%s", string(respBody), body.Params[0].URL)
-		return "", fmt.Errorf(errEmptyResult)
+		return "", fmt.Errorf("failed to Get RepID:\n\t%s,\n\t%s", string(respBody), body.Params[0].URL)
 	}
 
 	// WAIT 5 SEC TO BYPASS PENDING
@@ -974,7 +971,7 @@ func DownloadPdfReport(httpClient *http.Client, fazUrl, fazAdom, sessionid, repI
 	// PROCESSING REPORT DATA
 	result = bodyResp.Result.Data
 	if result == "" {
-		return "", fmt.Errorf(errEmptyResult)
+		return "", fmt.Errorf("result is empty for DownloadPdfReport body.Result.Data")
 	}
 
 	return result, nil
