@@ -16,10 +16,17 @@ func ldapConnect(ldapFqdn string) (*ldap.Conn, error) {
 	return conn, nil
 }
 
-// Search user's 'samaccountname' by it's 'displayname'
-func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bindUser, bindPass string) (string, error) {
-	// forming LDAP filter
-	filter := fmt.Sprintf("(&(objectClass=user)(displayname=%s)(!samaccountname=PAM-*))", userAcc)
+// Search enabled user's 'samaccountname' by it's 'displayname'
+//
+// filterName - prefix of samaAccountName to exclude from result
+func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bindUser, bindPass, filterSama string) (string, error) {
+	var result string
+
+	// forming LDAP filter; use exclude prefix if len(filterSama) > 0
+	filter := fmt.Sprintf("(&(objectClass=user)(displayname=%s))", userAcc)
+	if len(filterSama) > 0 {
+		filter = fmt.Sprintf("(&(objectClass=user)(displayname=%s)(!samaccountname=%s*))", userAcc, filterSama)
+	}
 
 	// make LDAP connection
 	conn, err := ldapConnect(ldapFqdn)
@@ -37,7 +44,7 @@ func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bin
 		return "", fmt.Errorf("failed to make ldap bind:\n\t%v", errBind)
 	}
 
-	// forming LDAP search request
+	// forming LDAP search request for 'samaccountname' and 'useraccountcontrol'(disabled=546)
 	searchReq := ldap.NewSearchRequest(
 		ldapBasedn,
 		ldap.ScopeWholeSubtree,
@@ -46,7 +53,7 @@ func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bin
 		0,
 		false,
 		filter,
-		[]string{"samaccountname"},
+		[]string{"samaccountname", "useraccountcontrol"},
 		nil,
 	)
 
@@ -61,9 +68,22 @@ func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bin
 		return "", fmt.Errorf("failed to find any entry, empty result")
 	}
 
-	// returning samaccountname
-	result := conResult.Entries[0].GetAttributeValue("sAMAccountName")
+	// check if len(conResult.Entries) > 1, choose only enabled(userAccountControl != 546)
+	if len(conResult.Entries) > 1 {
+		for ind := range conResult.Entries {
+			// pretty print
+			conResult.Entries[ind].PrettyPrint(4)
 
-	return result, nil
+			// choose first enabled account as result
+			if conResult.Entries[ind].GetAttributeValue("userAccountControl") != "546" {
+				result = conResult.Entries[ind].GetAttributeValue("sAMAccountName")
+				if len(result) == 0 {
+					return "", fmt.Errorf("failed to find 'sAMAccountName' attribute value, empty result")
+				}
+				return result, nil
+			}
+		}
+	}
 
+	return "", fmt.Errorf("failed to find any ENABLED account entry")
 }

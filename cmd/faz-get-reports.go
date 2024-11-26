@@ -83,6 +83,7 @@ func main() {
 		dbFile             = vafswork.GetExePath() + "/data/data.db"
 		mailingFileDefault = vafswork.GetExePath() + "/data/mailing.json"
 		mailErr            error
+		ldapSamAccFilter   = "PAM-"
 
 		fazData         fazData
 		ldapData        ldapData
@@ -562,13 +563,14 @@ func main() {
 	for _, user := range users {
 		log.Printf("STARTED: GETTING REPORT JOB: %s\n", user.Username)
 
-		// GETTING AD user's samaccountname
+		// GETTING AD user's samaccountname; exclude 'PAM-' accounts
 		sAMAccountName, err = ldap.BindAndSearchSamaccountnameByDisplayname(
 			user.Username,
 			ldapData.LdapFqdn,
 			ldapData.LdapBaseDn,
 			ldapData.LdapBindUser,
 			ldapData.LdapBindPass,
+			ldapSamAccFilter,
 		)
 		if err != nil {
 			// report error
@@ -584,7 +586,6 @@ func main() {
 		}
 
 		log.Printf("User's sAMAccountName found: %s", sAMAccountName)
-
 		// GETTING SESSIONID
 		// report error
 		// errorFazSessionid := fmt.Sprintf("FAILURE: get FAZ sessionid\n\t%v", errS)
