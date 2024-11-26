@@ -115,7 +115,7 @@ First, progarm checks if there are more than one program instance running. If th
     <li>read db entries(hd naumen tasks ids) in db and get all unprocessed</li>
     <li>make api request to get all tasks data(username, startdate, enddate)
     <ol> starting report loop for each user(one in time)
-        <li> search for LDAP sAMAccountName  of corresponding user in users.csv using LDAP bind user/pass </li>
+        <li> search for LDAP sAMAccountName(ldapSamAccFilter="PAM-" to filter - todo: add flag(?))  of corresponding user in users.csv using LDAP bind user/pass </li>
         <li> get FAZ sessionid to use FAZ API using FAZ API user/pass </li>
         <li> update FAZ datasets SQL queries for corresponding user </li>
         <li> run FAZ report and wait when it will have "generated" status </li>
