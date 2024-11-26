@@ -72,7 +72,7 @@ func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bin
 	if len(conResult.Entries) > 1 {
 		for ind := range conResult.Entries {
 			// pretty print
-			conResult.Entries[ind].PrettyPrint(4)
+			// conResult.Entries[ind].PrettyPrint(4)
 
 			// choose first enabled account as result
 			if conResult.Entries[ind].GetAttributeValue("userAccountControl") != "546" {
