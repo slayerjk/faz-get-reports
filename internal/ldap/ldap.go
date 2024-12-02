@@ -16,10 +16,12 @@ func ldapConnect(ldapFqdn string) (*ldap.Conn, error) {
 	return conn, nil
 }
 
-// Search enabled user's 'samaccountname' by it's 'displayname'
+// Search ONLY Enabled user's 'samaccountname' by it's 'displayname'
 //
-// filterName - prefix of samaAccountName to exclude from result
-func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bindUser, bindPass, filterSama string) (string, error) {
+// filterName - prefix of samaAccountName to exclude from result, use "" if don't need it;
+// also exclude disabled accounts (userAccountControl != 546|514);
+// dnFilter - some text of full DN to INCLUDE even if account is disabled, use "" if don't need it;
+func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bindUser, bindPass, filterSama, dnFilter string) (string, error) {
 	var result string
 
 	// forming LDAP filter; use exclude prefix if len(filterSama) > 0
@@ -75,7 +77,9 @@ func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bin
 			// conResult.Entries[ind].PrettyPrint(4)
 
 			// choose first enabled account as result
-			if conResult.Entries[ind].GetAttributeValue("userAccountControl") != "546" {
+			userAccountControl := conResult.Entries[ind].GetAttributeValue("userAccountControl")
+
+			if userAccountControl != "546" && userAccountControl != "514" {
 				result = conResult.Entries[ind].GetAttributeValue("sAMAccountName")
 				if len(result) == 0 {
 					return "", fmt.Errorf("failed to find 'sAMAccountName' attribute value, empty result")

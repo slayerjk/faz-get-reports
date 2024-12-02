@@ -84,6 +84,7 @@ func main() {
 		mailingFileDefault = vafswork.GetExePath() + "/data/mailing.json"
 		mailErr            error
 		ldapSamAccFilter   = "PAM-"
+		ldapDnFilter       = "Enabled_accounts"
 
 		fazData         fazData
 		ldapData        ldapData
@@ -571,6 +572,7 @@ func main() {
 			ldapData.LdapBindUser,
 			ldapData.LdapBindPass,
 			ldapSamAccFilter,
+			ldapDnFilter,
 		)
 		if err != nil {
 			// report error
@@ -586,6 +588,7 @@ func main() {
 		}
 
 		log.Printf("User's sAMAccountName found: %s", sAMAccountName)
+
 		// GETTING SESSIONID
 		// report error
 		// errorFazSessionid := fmt.Sprintf("FAILURE: get FAZ sessionid\n\t%v", errS)
