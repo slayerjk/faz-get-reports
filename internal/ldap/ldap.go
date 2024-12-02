@@ -21,7 +21,7 @@ func ldapConnect(ldapFqdn string) (*ldap.Conn, error) {
 // filterName - prefix of samaAccountName to exclude from result, use "" if don't need it;
 // also exclude disabled accounts (userAccountControl != 546|514);
 // dnFilter - some text of full DN to INCLUDE even if account is disabled, use "" if don't need it;
-func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bindUser, bindPass, filterSama, dnFilter string) (string, error) {
+func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bindUser, bindPass, filterSama string) (string, error) {
 	var result string
 
 	// forming LDAP filter; use exclude prefix if len(filterSama) > 0

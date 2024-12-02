@@ -84,7 +84,6 @@ func main() {
 		mailingFileDefault = vafswork.GetExePath() + "/data/mailing.json"
 		mailErr            error
 		ldapSamAccFilter   = "PAM-"
-		ldapDnFilter       = "Enabled_accounts"
 
 		fazData         fazData
 		ldapData        ldapData
@@ -572,7 +571,6 @@ func main() {
 			ldapData.LdapBindUser,
 			ldapData.LdapBindPass,
 			ldapSamAccFilter,
-			ldapDnFilter,
 		)
 		if err != nil {
 			// report error
