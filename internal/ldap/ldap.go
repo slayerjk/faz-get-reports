@@ -71,16 +71,17 @@ func BindAndSearchSamaccountnameByDisplayname(userAcc, ldapFqdn, ldapBasedn, bin
 	}
 
 	// check if len(conResult.Entries) > 1, choose only enabled(userAccountControl != 546)
-	if len(conResult.Entries) > 1 {
+	if len(conResult.Entries) >= 1 {
 		for ind := range conResult.Entries {
 			// pretty print
-			// conResult.Entries[ind].PrettyPrint(4)
+			conResult.Entries[ind].PrettyPrint(4)
 
 			// choose first enabled account as result
 			userAccountControl := conResult.Entries[ind].GetAttributeValue("userAccountControl")
 
 			if userAccountControl != "546" && userAccountControl != "514" {
 				result = conResult.Entries[ind].GetAttributeValue("sAMAccountName")
+
 				if len(result) == 0 {
 					return "", fmt.Errorf("failed to find 'sAMAccountName' attribute value, empty result")
 				}

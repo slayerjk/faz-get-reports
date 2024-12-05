@@ -586,6 +586,7 @@ func main() {
 		}
 
 		log.Printf("User's sAMAccountName found: %s", sAMAccountName)
+		// os.Exit(0)
 
 		// GETTING SESSIONID
 		// report error
