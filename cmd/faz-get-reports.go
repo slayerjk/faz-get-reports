@@ -574,7 +574,12 @@ func main() {
 		)
 		if err != nil {
 			// report error
-			errorGetSamaccountName := fmt.Sprintf("FAILURE: fetch AD samaccountname for '%s':\n\t%v", user.UserInitials, err)
+			errorGetSamaccountName := fmt.Sprintf(
+				"FAILURE: fetch AD samaccountname for '%s'(NaumenRP=%s):\n\t%v\nSkpping user",
+				user.UserInitials,
+				user.RP,
+				err,
+			)
 			// mail this error if mailing option is on
 			if *mailingOpt {
 				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorGetSamaccountName))
@@ -582,7 +587,10 @@ func main() {
 					log.Printf("failed to send email:\n\t%v", mailErr)
 				}
 			}
-			log.Fatal(errorGetSamaccountName)
+			// TODO: just skip user, don't shutdown the app
+			// log.Fatal(errorGetSamaccountName)
+			log.Println(errorGetSamaccountName)
+			continue
 		}
 
 		log.Printf("User's sAMAccountName found: %s", sAMAccountName)
