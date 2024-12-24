@@ -19,10 +19,10 @@ import (
 	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
 	naumen "github.com/slayerjk/faz-get-reports/internal/hd-naumen-api"
 	ldap "github.com/slayerjk/faz-get-reports/internal/ldap"
-	logging "github.com/slayerjk/faz-get-reports/internal/logging"
-	"github.com/slayerjk/faz-get-reports/internal/mailing"
-	"github.com/slayerjk/faz-get-reports/internal/vafswork"
-	"github.com/slayerjk/faz-get-reports/internal/vawebwork"
+	logging "github.com/slayerjk/go-logging"
+	mailing "github.com/slayerjk/go-mailing"
+	vafswork "github.com/slayerjk/go-vafswork"
+	vawebwork "github.com/slayerjk/go-vawebwork"
 )
 
 const (
@@ -594,7 +594,7 @@ func main() {
 		}
 
 		log.Printf("User's sAMAccountName found: %s", sAMAccountName)
-		// os.Exit(0)
+		os.Exit(0)
 
 		// GETTING SESSIONID
 		// report error
