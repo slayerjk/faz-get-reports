@@ -18,10 +18,10 @@ import (
 	"github.com/slayerjk/faz-get-reports/internal/dboperations"
 	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
 	naumen "github.com/slayerjk/faz-get-reports/internal/hd-naumen-api"
-	ldap "github.com/slayerjk/faz-get-reports/internal/ldap"
 	logging "github.com/slayerjk/go-logging"
 	mailing "github.com/slayerjk/go-mailing"
 	vafswork "github.com/slayerjk/go-vafswork"
+	ldap "github.com/slayerjk/go-valdapwork"
 	vawebwork "github.com/slayerjk/go-vawebwork"
 )
 
