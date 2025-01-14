@@ -14,21 +14,14 @@ import (
 // response struct for json body of getData
 type getDataResponse struct {
 	Fields struct {
-		Message struct {
-			Header struct {
-				ServiceCall struct {
-					UUID  string `json:"UUID"`
-					Title string `json:"title"`
-				} `json:"serviceCall"`
-				Condition string `json:"condition"`
-			} `json:"header"`
-		} `json:"message"`
+		SC string `json:"uuidInMainSyst"`
 	} `json:"fields"`
 }
 
 // response struct for json body of getData
 type getTaskDetailsResponse struct {
 	SumDescription string `json:"sumDescription"`
+	RP             string `json:"title"`
 }
 
 // Get ServiceCall and task id(RP) based on data parameter
@@ -38,9 +31,11 @@ type getTaskDetailsResponse struct {
 // https://{{base_url}}/gateway/services/rest/getData?accessKey={{accessKey}}&params={{example: data$123456}},user
 //
 // return []string : serviceCall, RP
-func GetServiceCallAndRP(c *http.Client, baseUrl, accessKey, taskId string) ([]string, error) {
+// func GetServiceCallAndRP(c *http.Client, baseUrl, accessKey, taskId string) ([]string, error) {
+func GetServiceCall(c *http.Client, baseUrl, accessKey, taskId string) (string, error) {
 	var respData getDataResponse
-	result := make([]string, 0, 2)
+	// result := make([]string, 0, 2)
+	var result string
 
 	// form request URL
 	requestURL := fmt.Sprintf("%s/gateway/services/rest/getData?accessKey=%s&params=%s,user", baseUrl, accessKey, taskId)
@@ -49,35 +44,38 @@ func GetServiceCallAndRP(c *http.Client, baseUrl, accessKey, taskId string) ([]s
 	// form GET request
 	request, errReq := http.NewRequest(http.MethodGet, requestURL, nil)
 	if errReq != nil {
-		return nil, fmt.Errorf("failed to form request of getData:\n\t%v", errReq)
+		return "", fmt.Errorf("failed to form request of getData:\n\t%v", errReq)
 	}
 
 	// make request
 	response, errResp := c.Do(request)
 	if errResp != nil {
-		return nil, fmt.Errorf("failed to make request of getData:\n\t%v", errResp)
+		return "", fmt.Errorf("failed to make request of getData:\n\t%v", errResp)
 	}
 	defer response.Body.Close()
 
 	// response status must be 200
 	if response.StatusCode != 200 && response.StatusCode != 202 {
-		return nil, fmt.Errorf("bad response status code of getData: %v", response.Status)
+		return "", fmt.Errorf("bad response status code of getData: %v", response.Status)
 	}
 
 	// read response
 	respBody, errR := io.ReadAll(response.Body)
 	if errR != nil {
-		return nil, fmt.Errorf("failed to read response of getData:\n\t%v", errR)
+		return "", fmt.Errorf("failed to read response of getData:\n\t%v", errR)
 	}
 
 	// unmarshalling json body int var
 	errU := json.Unmarshal(respBody, &respData)
 	if errU != nil {
-		return nil, fmt.Errorf("failed to unmarshall response of getData:\n\t%v\n\t%s", errU, string(respBody))
+		return "", fmt.Errorf("failed to unmarshall response of getData:\n\t%v\n\t%s", errU, string(respBody))
 	}
 
 	// adding ServiceCall & RP to result
-	result = append(result, respData.Fields.Message.Header.ServiceCall.UUID, respData.Fields.Message.Header.ServiceCall.Title)
+	result = respData.Fields.SC
+	if len(result) == 0 {
+		return "", fmt.Errorf("failed to find any ServiceCall, empty result")
+	}
 
 	return result, nil
 }
@@ -94,13 +92,13 @@ func GetTaskSumDescriptionAndRP(c *http.Client, baseUrl, accessKey, taskId strin
 	result := make([]string, 0, 2)
 
 	// get ServiceCall id & RP id
-	serviceCallAndRR, errG := GetServiceCallAndRP(c, baseUrl, accessKey, taskId)
+	serviceCall, errG := GetServiceCall(c, baseUrl, accessKey, taskId)
 	if errG != nil {
-		return nil, fmt.Errorf("failed to get ServiceCall and RP:\n\t%v", errG)
+		return nil, fmt.Errorf("failed to get ServiceCall:\n\t%v", errG)
 	}
 
 	// form request URL
-	requestURL := fmt.Sprintf("%s/sd/services/rest/get/%s?accessKey=%s", baseUrl, serviceCallAndRR[0], accessKey)
+	requestURL := fmt.Sprintf("%s/sd/services/rest/get/%s?accessKey=%s", baseUrl, serviceCall, accessKey)
 	// fmt.Println(requestURL)
 
 	// form GET request
@@ -135,7 +133,7 @@ func GetTaskSumDescriptionAndRP(c *http.Client, baseUrl, accessKey, taskId strin
 	// fmt.Printf("%+v", respData)
 
 	// append to result
-	result = append(result, serviceCallAndRR[0], serviceCallAndRR[1], respData.SumDescription)
+	result = append(result, serviceCall, respData.RP, respData.SumDescription)
 
 	return result, nil
 }
@@ -179,7 +177,7 @@ func TakeSCResponsibility(c *http.Client, baseUrl, accessKey, serviceCall string
 // body form-data example:
 //
 // procCodeclose(TEXT; Resolved) = catalogs$28411
-// soluteion(TEXT) = text
+// solution(TEXT) = text
 // files(FILE) = files
 func AttachFilesAndSetAcceptance(c *http.Client, baseURL, accessKey, serviceCall string, files []string) error {
 	// form request URL
@@ -210,6 +208,9 @@ func AttachFilesAndSetAcceptance(c *http.Client, baseURL, accessKey, serviceCall
 		}
 
 		_, err = io.Copy(part, file)
+		if err != nil {
+			return fmt.Errorf("failed to io.Copy filepath data to form-data:\n\t%v", err)
+		}
 	}
 
 	// write fields to body
