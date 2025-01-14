@@ -108,7 +108,7 @@ func main() {
 	flag.Parse()
 
 	// logging
-	logFile, err := logging.StartLogging(appName, *logsDir, *logsToKeep)
+	logFile, err := logging.StartLogging(appName, *logsDir)
 	if err != nil {
 		// report error
 		errorLogging := fmt.Sprintf("FAILURE: start logging:\n\t%s", err)

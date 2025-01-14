@@ -6,11 +6,11 @@ require github.com/go-ldap/ldap v3.0.3+incompatible // indirect; direct
 
 require (
 	github.com/ncruces/go-sqlite3 v0.20.0
+	github.com/slayerjk/go-logging v0.0.2
 	github.com/slayerjk/go-mailing v0.0.1
 	github.com/slayerjk/go-vafswork v0.0.1
 	github.com/slayerjk/go-valdapwork v0.0.1
 	github.com/slayerjk/go-vawebwork v0.0.1
-	github.com/slayerjk/go-logging v0.0.1
 )
 
 require (
