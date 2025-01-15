@@ -14,6 +14,7 @@ Flags are:
     * keep-logs(number of logs to keep, 7 is default),
     * m(mailing on, use 'data/mailing.json')
     * mailing-file(full path to 'mailing.json', default is in the "data/mailing.json")
+    * solution-text(solution text for HD Request)
 
 <h2>Description</h2>
 

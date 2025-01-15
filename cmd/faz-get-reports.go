@@ -17,7 +17,7 @@ import (
 
 	"github.com/slayerjk/faz-get-reports/internal/dboperations"
 	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
-	naumen "github.com/slayerjk/faz-get-reports/internal/hd-naumen-api"
+	naumen "github.com/slayerjk/go-hd-naumen-api"
 	logging "github.com/slayerjk/go-logging"
 	mailing "github.com/slayerjk/go-mailing"
 	vafswork "github.com/slayerjk/go-vafswork"
@@ -72,7 +72,6 @@ type User struct {
 type NaumenRPSummary map[string]map[string][]string
 
 func main() {
-	// TODO: maybe refactor to be in fazrequests?
 	var (
 		logsPath           = vafswork.GetExePath() + "/logs" + "_" + appName
 		fazDataFilePath    = vafswork.GetExePath() + "/data/faz-data.json"
@@ -105,6 +104,7 @@ func main() {
 	mode := flag.String("mode", "naumen", "set program mode('csv' - use data/users.csv; 'naumen' - work with HD Naumen API & sqlite3 data/data.db &)")
 	mailingOpt := flag.Bool("m", false, "turn the mailing options on(use 'data/mailing.json')")
 	mailingFile := flag.String("mailing-file", mailingFileDefault, "full path to 'mailing.json'")
+	hdSolutionText := flag.String("solution-text", "Запрос  исполнен, результат во вложении!", "set solution text for HD Request")
 	flag.Parse()
 
 	// logging
@@ -808,7 +808,13 @@ func main() {
 				log.Printf("STARTED: attaching files to ticket and set acceptance(%s)", rp)
 
 				// for files skip 0 index, because it's dataID
-				errA := naumen.AttachFilesAndSetAcceptance(&httpClient, naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, sc, files[1:])
+				errA := naumen.AttachFilesAndSetAcceptance(
+					&httpClient,
+					naumenData.NaumenBaseUrl,
+					naumenData.NaumenAccessKey,
+					sc,
+					*hdSolutionText,
+					files[1:])
 				if errA != nil {
 					// report error
 					errorAFSA := fmt.Sprintf("FAILURE: attaching files to ticket and set acceptance(%s):\n\t%v", rp, errA)
