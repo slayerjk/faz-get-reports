@@ -350,13 +350,13 @@ func main() {
 			logger.Error(errorUnprocessedValues)
 			os.Exit(1)
 		}
-		logger.Info("current unprocessed Naumen data ids", slog.Any("LIST", unprocessedValues))
 
 		// exit program if there are no values to process
 		if len(unprocessedValues) == 0 {
 			logger.Warn("no values to process this time, exiting")
 			os.Exit(1)
 		}
+		logger.Info("current unprocessed Naumen data ids", slog.Any("LIST", unprocessedValues))
 
 		// loop to get all users & dates by DB unprocessedValues
 		// TODO: consider goroutine
