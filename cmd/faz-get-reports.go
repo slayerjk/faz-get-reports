@@ -7,7 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"regexp"
@@ -18,7 +18,6 @@ import (
 	"github.com/slayerjk/faz-get-reports/internal/dboperations"
 	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
 	naumen "github.com/slayerjk/go-hd-naumen-api"
-	logging "github.com/slayerjk/go-logging"
 	mailing "github.com/slayerjk/go-mailing"
 	vafswork "github.com/slayerjk/go-vafswork"
 	ldap "github.com/slayerjk/go-valdapwork"
@@ -108,21 +107,24 @@ func main() {
 	flag.Parse()
 
 	// logging
-	logFile, err := logging.StartLogging(appName, *logsDir)
-	if err != nil {
-		// report error
-		errorLogging := fmt.Sprintf("FAILURE: start logging:\n\t%s", err)
-		// mail this error if mailing option is on
-		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorLogging))
-			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
-			}
-		}
-		log.Fatal(errorLogging)
+	// create log dir
+	if err := os.MkdirAll(*logsDir, os.ModePerm); err != nil {
+		fmt.Fprintf(os.Stdout, "failed to create log dir %s:\n\t%v", *logsDir, err)
+		os.Exit(1)
 	}
-
+	// set current date
+	dateNow := time.Now().Format("02.01.2006")
+	// create log file
+	logFilePath := fmt.Sprintf("%s/%s_%s.log", *logsDir, appName, dateNow)
+	// open log file in append mode
+	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "failed to open created log file %s:\n\t%v", logFilePath, err)
+		os.Exit(1)
+	}
 	defer logFile.Close()
+	// set logger
+	logger := slog.New(slog.NewTextHandler(logFile, nil))
 
 	// check if faz-get-report process is running already(exit if is already running)
 	var (
@@ -134,22 +136,30 @@ func main() {
 		cmd := exec.Command("powershell", "Get-Process", appName)
 		cmdOutput, errOutput = cmd.Output()
 		if errOutput != nil {
-			log.Fatalf("failed to get output of process list command for platform(%s):\n\t%v", runtime.GOOS, errOutput)
+			logger.Error("failed to get output of process list command", "OS", runtime.GOOS, "ERR", errOutput)
+			os.Exit(1)
 		}
 	case "linux":
 		cmd := exec.Command("ps", "-C", appName)
 		cmdOutput, errOutput = cmd.Output()
 		if errOutput != nil {
-			log.Fatalf("failed to get output of process list command for platform(%s):\n\t%v", runtime.GOOS, errOutput)
+			logger.Error("failed to get output of process list command", "OS", runtime.GOOS, "ERR", errOutput)
+			os.Exit(1)
 		}
 	default:
-		log.Fatalf("FAILURE: platform doesn't supported: %s", runtime.GOOS)
+		logger.Error("platform doesn't supported", "platform", runtime.GOOS)
+		os.Exit(1)
 	}
 	// searching if there are more than one process of running app(based on appName)
 	searchProcessRegexp := regexp.MustCompile(appName)
 	searchProcessResult := searchProcessRegexp.FindAll(cmdOutput, -1)
 	if len(searchProcessResult) > 1 {
-		log.Fatalf("the application is already running(%d processes found), skipping this time:\n\t%s", len(searchProcessResult), string(cmdOutput))
+		logger.Error(
+			"the application is already running",
+			slog.Int("PROC NUM", len(searchProcessResult)),
+			"CMD_OUTPUT", string(cmdOutput),
+		)
+		os.Exit(1)
 	}
 
 	// create map for Naumen RP data(RP, SC, files report)
@@ -157,7 +167,7 @@ func main() {
 
 	// starting programm notification
 	startTime := time.Now()
-	log.Printf("-----Program '%s' Started-----\n", appName)
+	logger.Info("Program Started", "APP", appName, "MODE", *mode)
 
 	// making http client for FAZ/HD Naumen request
 	httpClient := vawebwork.NewInsecureClient()
@@ -170,12 +180,13 @@ func main() {
 		errorDataFile := fmt.Sprintf("FAILURE: open FAZ data file:\n\t%v", errFile)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorDataFile))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorDataFile))
 			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		log.Fatal(errorDataFile)
+		logger.Error(errorDataFile)
+		os.Exit(1)
 	}
 	defer fazDataFile.Close()
 
@@ -185,12 +196,13 @@ func main() {
 		errorFazData := fmt.Sprintf("FAILURE: read FAZ data file:\n\t%v", errRead)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazData))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazData))
 			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		log.Fatal(errorFazData)
+		logger.Error(errorFazData)
+		os.Exit(1)
 	}
 
 	errJsonF := json.Unmarshal(byteFazData, &fazData)
@@ -199,12 +211,13 @@ func main() {
 		errorFazDataJson := fmt.Sprintf("FAILURE: unmarshall FAZ data:\n\t%v", errJsonF)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazDataJson))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazDataJson))
 			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		log.Fatal(errorFazDataJson)
+		logger.Error(errorFazDataJson)
+		os.Exit(1)
 	}
 
 	// TODO: refactor -> vafswork
@@ -215,12 +228,14 @@ func main() {
 		errorLdapData := fmt.Sprintf("FAILURE: open LDAP data file:\n\t%v", errFile)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorLdapData))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorLdapData))
 			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
+				os.Exit(1)
 			}
 		}
-		log.Fatal(errorLdapData)
+		logger.Error(errorLdapData)
+		os.Exit(1)
 	}
 	defer fazDataFile.Close()
 
@@ -230,12 +245,13 @@ func main() {
 		errorLdapDataRead := fmt.Sprintf("FAILURE: read LDAP data file:\n\t%v", errRead)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorLdapDataRead))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorLdapDataRead))
 			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		log.Fatal(errorLdapDataRead)
+		logger.Error(errorLdapDataRead)
+		os.Exit(1)
 	}
 
 	errJsonL := json.Unmarshal(byteLdapData, &ldapData)
@@ -244,12 +260,13 @@ func main() {
 		errorLdapDataJson := fmt.Sprintf("FAILURE: unmarshall LDAP data file:\n\t%v", errJsonL)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorLdapDataJson))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorLdapDataJson))
 			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		log.Fatal(errorLdapDataJson)
+		logger.Error(errorLdapDataJson)
+		os.Exit(1)
 	}
 
 	// CREATING REPORTS DIR IF NOT EXIST
@@ -258,12 +275,13 @@ func main() {
 		errorMkdirResults := fmt.Sprintf("FAILURE: create reports dir(%s):\n\t%v", resultsPath, err)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorMkdirResults))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorMkdirResults))
 			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		log.Fatal(errorMkdirResults)
+		logger.Error(errorMkdirResults)
+		os.Exit(1)
 	}
 
 	// different workflows for mode 'db'(default) & 'csv'
@@ -277,12 +295,13 @@ func main() {
 			errorNaumenData := fmt.Sprintf("FAILURE: open NAUMEN data file:\n\t%v", errFile)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorNaumenData))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorNaumenData))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorNaumenData)
+			logger.Error(errorNaumenData)
+			os.Exit(1)
 		}
 		defer naumenDataFile.Close()
 
@@ -292,12 +311,13 @@ func main() {
 			errorNaumenDataRead := fmt.Sprintf("FAILURE: read NAUMEN data file:\n\t%v", errRead)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorNaumenDataRead))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorNaumenDataRead))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorNaumenDataRead)
+			logger.Error(errorNaumenDataRead)
+			os.Exit(1)
 		}
 
 		errJsonL := json.Unmarshal(byteNaumenData, &naumenData)
@@ -306,12 +326,13 @@ func main() {
 			errorNaumenDataJson := fmt.Sprintf("FAILURE: unmarshall NAUMEN data file:\n\t%v", errJsonL)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorNaumenDataJson))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorNaumenDataJson))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorNaumenDataJson)
+			logger.Error(errorNaumenDataJson)
+			os.Exit(1)
 		}
 
 		// getting list of unporcessed values in db
@@ -321,18 +342,20 @@ func main() {
 			errorUnprocessedValues := fmt.Sprintf("FAILURE: get list of unprocessed values in db(%s):\n\t%v", dbFile, err)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorUnprocessedValues))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorUnprocessedValues))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorUnprocessedValues)
+			logger.Error(errorUnprocessedValues)
+			os.Exit(1)
 		}
-		log.Printf("current unprocessed Naumen data ids:\n\t%v", unprocessedValues)
+		logger.Info("current unprocessed Naumen data ids", slog.Any("LIST", unprocessedValues))
 
 		// exit program if there are no values to process
 		if len(unprocessedValues) == 0 {
-			log.Fatalf("INFO: no values to process this time, exiting")
+			logger.Warn("no values to process this time, exiting")
+			os.Exit(1)
 		}
 
 		// loop to get all users & dates by DB unprocessedValues
@@ -344,14 +367,16 @@ func main() {
 				errorSumDescription := fmt.Sprintf("FAILURE: get getData from Naumen for '%s':\n\t%v", taskId, err)
 				// mail this error if mailing option is on
 				if *mailingOpt {
-					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorSumDescription))
+					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorSumDescription))
 					if mailErr != nil {
-						log.Printf("failed to send email:\n\t%v", mailErr)
+						logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 					}
 				}
-				log.Fatal(errorSumDescription)
+				logger.Error(errorSumDescription)
+				os.Exit(1)
 			}
-			log.Printf("found sumDescription of %s(%s):\n\t%v\n", sumDescription[1], sumDescription[0], sumDescription[2])
+			sumDescriptionFound := fmt.Sprintf("found sumDescription of %s(%s):\n\t%v\n", sumDescription[1], sumDescription[0], sumDescription[2])
+			logger.Info(sumDescriptionFound)
 
 			// sumDescription example:
 			// "sumDescription": "<font color=\"#5f5f5f\">Укажите ФИО: <b>Surname1 Name1 Patronymic1, Surname2 Name2 Patronymic2</b>
@@ -367,12 +392,13 @@ func main() {
 				errorDatesParsing := fmt.Sprintf("FAILURE: find dates subexpression in sumDescription of %s", taskId)
 				// mail this error if mailing option is on
 				if *mailingOpt {
-					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorDatesParsing))
+					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorDatesParsing))
 					if mailErr != nil {
-						log.Printf("failed to send email:\n\t%v", mailErr)
+						logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 					}
 				}
-				log.Fatal(errorDatesParsing)
+				logger.Error(errorDatesParsing)
+				os.Exit(1)
 			}
 			// next split subexpr for separate dates(start date then end date)
 			datesFound := strings.Split(datesSubexpr[1], " - ")
@@ -381,12 +407,13 @@ func main() {
 				errorDatesEmpty := fmt.Sprintf("FAILURE: no dates in result of usersSubexpr split(%s)", taskId)
 				// mail this error if mailing option is on
 				if *mailingOpt {
-					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorDatesEmpty))
+					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorDatesEmpty))
 					if mailErr != nil {
-						log.Printf("failed to send email:\n\t%v", mailErr)
+						logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 					}
 				}
-				log.Fatal(errorDatesEmpty)
+				logger.Error(errorDatesEmpty)
+				os.Exit(1)
 			}
 			// next we need to format dates to FAZ format('00:00:01 2024/08/06')
 			for ind, date := range datesFound {
@@ -397,12 +424,13 @@ func main() {
 					errorParseDateString := fmt.Sprintf("FAILURE: parse date string: %s(%s)", date, taskId)
 					// mail this error if mailing option is on
 					if *mailingOpt {
-						mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorParseDateString))
+						mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorParseDateString))
 						if mailErr != nil {
-							log.Printf("failed to send email:\n\t%v", mailErr)
+							logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 						}
 					}
-					log.Fatal(errorParseDateString)
+					logger.Error(errorParseDateString)
+					os.Exit(1)
 				}
 				// now format time to FAZ format
 				datesFound[ind] = tempDate.Format("15:04:05 2006/01/02")
@@ -419,12 +447,13 @@ func main() {
 				errorUsersParsing := fmt.Sprintf("FAILURE: find users subexpression in sumDescription of %s", taskId)
 				// mail this error if mailing option is on
 				if *mailingOpt {
-					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorUsersParsing))
+					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorUsersParsing))
 					if mailErr != nil {
-						log.Printf("failed to send email:\n\t%v", mailErr)
+						logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 					}
 				}
-				log.Fatal(errorUsersParsing)
+				logger.Error(errorUsersParsing)
+				os.Exit(1)
 			}
 			// next split subexpr for separate users
 			usersFound := strings.Split(usersSubexpr[1], ",")
@@ -433,12 +462,13 @@ func main() {
 				errorUsersEmpty := fmt.Sprintf("FAILURE: no users in result of usersSubexpr split(%s)!", taskId)
 				// mail this error if mailing option is on
 				if *mailingOpt {
-					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorUsersEmpty))
+					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorUsersEmpty))
 					if mailErr != nil {
-						log.Printf("failed to send email:\n\t%v", mailErr)
+						logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 					}
 				}
-				log.Fatal(errorUsersEmpty)
+				logger.Error(errorUsersEmpty)
+				os.Exit(1)
 			}
 			// fmt.Println(usersFound)
 
@@ -483,12 +513,13 @@ func main() {
 			errorCsvFile := fmt.Sprintf("FAILURE: open users file(%s):\n\t%v", usersFile.Name(), errFile)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorCsvFile))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorCsvFile))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorCsvFile)
+			logger.Error(errorCsvFile)
+			os.Exit(1)
 		}
 		defer usersFile.Close()
 
@@ -524,19 +555,20 @@ func main() {
 	//fmt.Printf("%v", users)
 
 	// GETTING FAZ SESSION ID
-	log.Println("getting FAZ session id")
+	logger.Info("getting FAZ session id")
 	sessionid, errS := fazrep.GetSessionid(&httpClient, fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
 	if errS != nil {
 		// report error
 		errorFazSessionid := fmt.Sprintf("FAILURE: get FAZ sessionid\n\t%v", errS)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazSessionid))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazSessionid))
 			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		log.Fatal(errorFazSessionid)
+		logger.Error(errorFazSessionid)
+		os.Exit(1)
 	}
 
 	// GETTING FAZ REPORT LAYOUT
@@ -546,22 +578,23 @@ func main() {
 		errorFazRepLayout := fmt.Sprintf("FAILURE: get FAZ report layout:\n\t%v", errLayout)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazRepLayout))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazRepLayout))
 			if mailErr != nil {
-				log.Printf("failed to send email:\n\t%v", mailErr)
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		log.Fatal(errorFazRepLayout)
+		logger.Error(errorFazRepLayout)
+		os.Exit(1)
 	}
 
 	// STARTING GETTING REPORT LOOP
-	log.Println("Users data to process in FAZ:")
+	logger.Info("Users data to process in FAZ:")
 	for _, user := range users {
-		log.Printf("\t%v\n", user)
+		logger.Info("processing now", slog.Any("USR", user))
 	}
 
 	for _, user := range users {
-		log.Printf("STARTED: GETTING REPORT JOB: %s\n", user.Username)
+		logger.Info("getting report job", "USR", user.Username)
 
 		// GETTING AD user's samaccountname; exclude 'PAM-' accounts
 		sAMAccountName, err = ldap.BindAndSearchSamaccountnameByDisplayname(
@@ -582,18 +615,18 @@ func main() {
 			)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorGetSamaccountName))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorGetSamaccountName))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
 			// TODO: just skip user, don't shutdown the app
-			// log.Fatal(errorGetSamaccountName)
-			log.Println(errorGetSamaccountName)
+			// logger.Fatal(errorGetSamaccountName)
+			logger.Warn(errorGetSamaccountName)
 			continue
 		}
 
-		log.Printf("User's sAMAccountName found: %s", sAMAccountName)
+		logger.Info("User's sAMAccountName found", "ACC", sAMAccountName)
 		// os.Exit(0)
 
 		// GETTING SESSIONID
@@ -601,12 +634,12 @@ func main() {
 		// errorFazSessionid := fmt.Sprintf("FAILURE: get FAZ sessionid\n\t%v", errS)
 		// mail this error if mailing option is on
 		// if *mailingOpt {
-		// 	mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazSessionid))
+		// 	mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazSessionid))
 		// 	if mailErr != nil {
-		// 		log.Printf("failed to send email:\n\t%v", mailErr)
+		// 		logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 		// 	}
 		// }
-		// log.Fatal(errorFazSessionid)
+		// logger.Fatal(errorFazSessionid)
 
 		// UPDATING DATASETS QUERY
 		errUpdDataset := fazrep.UpdateDatasets(&httpClient, fazData.FazUrl, sessionid, fazData.FazAdom, sAMAccountName, fazData.FazDatasets)
@@ -615,16 +648,17 @@ func main() {
 			errorFazDatasetUpd := fmt.Sprintf("FAILURE: to update FAZ datasets:\n\t%v", errUpdDataset)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazDatasetUpd))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazDatasetUpd))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorFazDatasetUpd)
+			logger.Error(errorFazDatasetUpd)
+			os.Exit(1)
 		}
 
 		// STARTING REPORT
-		log.Printf("STARTED: running FAZ report job: %s\n", user.Username)
+		logger.Info("started running FAZ report job", "USR", user.Username)
 
 		repId, err := fazrep.StartReport(&httpClient, fazData.FazUrl, fazData.FazAdom, fazData.FazDevice, sessionid, user.StartDate, user.EndDate, fazReportLayout)
 		if err != nil {
@@ -632,16 +666,17 @@ func main() {
 			errorFazReportStart := fmt.Sprintf("FAILURE: to start FAZ report:\n\t%v", err)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazReportStart))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazReportStart))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorFazReportStart)
+			logger.Error(errorFazReportStart)
+			os.Exit(1)
 		}
 
 		// DOWNLOADING PDF REPORT
-		log.Printf("STARTED: downloading for %s\n", user.Username)
+		logger.Info("started downloading report", "USR", user.Username)
 
 		repData, err := fazrep.DownloadPdfReport(&httpClient, fazData.FazUrl, fazData.FazAdom, sessionid, repId)
 		if err != nil {
@@ -649,12 +684,13 @@ func main() {
 			errorFazReportDownload := fmt.Sprintf("FAILURE: dowonload FAZ report:\n\t%v", err)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazReportDownload))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazReportDownload))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorFazReportDownload)
+			logger.Error(errorFazReportDownload)
+			os.Exit(1)
 		}
 
 		// GETTING DATES FOR REPORT FILE
@@ -664,12 +700,13 @@ func main() {
 			errorUserStartTimeParse := fmt.Sprintf("FAILURE: to Parse User(%v) Start Time(%v):\n\t%v", user, tempTime, err)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorUserStartTimeParse))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorUserStartTimeParse))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorUserStartTimeParse)
+			logger.Error(errorUserStartTimeParse)
+			os.Exit(1)
 		}
 		repStartTime = tempTime.Format("02-01-2006-T-15-04-05")
 
@@ -679,12 +716,13 @@ func main() {
 			errorUserEndTimeParse := fmt.Sprintf("FAILURE: to Parse User(%v) End Time(%v):\n\t%v", user, tempTime, err)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorUserEndTimeParse))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorUserEndTimeParse))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorUserEndTimeParse)
+			logger.Error(errorUserEndTimeParse)
+			os.Exit(1)
 		}
 		repEndTime = tempTime.Format("02-01-2006-T-15-04-05")
 
@@ -697,12 +735,13 @@ func main() {
 			errorFazReportDecode := fmt.Sprintf("FAILURE: to Decode Report Data(%s):\n\t%v", repData, err)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazReportDecode))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazReportDecode))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorFazReportDecode)
+			logger.Error(errorFazReportDecode)
+			os.Exit(1)
 		}
 
 		// forming report file full path
@@ -715,12 +754,13 @@ func main() {
 				errorMkdirReportRP := fmt.Sprintf("FAILURE: create reports dir with RP(%s):\n\t%v", user.RP, err)
 				// mail this error if mailing option is on
 				if *mailingOpt {
-					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorMkdirReportRP))
+					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorMkdirReportRP))
 					if mailErr != nil {
-						log.Printf("failed to send email:\n\t%v", mailErr)
+						logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 					}
 				}
-				log.Fatal(errorMkdirReportRP)
+				logger.Error(errorMkdirReportRP)
+				os.Exit(1)
 			}
 			reportFilePath = fmt.Sprintf("%s/%s/%s.zip", resultsPath, user.RP, user.UserInitials)
 		}
@@ -732,12 +772,13 @@ func main() {
 			errorCreateReportBlankFile := fmt.Sprintf("FAILURE: to Create Report Blank File(%s):\n\t%v", reportFilePath, err)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorCreateReportBlankFile))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorCreateReportBlankFile))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorCreateReportBlankFile)
+			logger.Error(errorCreateReportBlankFile)
+			os.Exit(1)
 		}
 		defer file.Close()
 
@@ -747,24 +788,26 @@ func main() {
 			errorWriteReportData := fmt.Sprintf("FAILURE: to Write Report Data to File(%s):\n\t%v", reportFilePath, err)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorWriteReportData))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorWriteReportData))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorWriteReportData)
+			logger.Error(errorWriteReportData)
+			os.Exit(1)
 		}
 		if err := file.Sync(); err != nil {
 			// report error
 			errorSyncReportData := fmt.Sprintf("FAILURE: to Sync Written Report File(%s):\n\t%v", reportFilePath, err)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorSyncReportData))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorSyncReportData))
 				if mailErr != nil {
-					log.Printf("failed to send email:\n\t%v", mailErr)
+					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			log.Fatal(errorSyncReportData)
+			logger.Error(errorSyncReportData)
+			os.Exit(1)
 		}
 
 		// fill up summary for Naumen data with downloaded reports file pathes
@@ -772,20 +815,20 @@ func main() {
 			naumenSummary[user.ServiceCall][user.RP] = append(naumenSummary[user.ServiceCall][user.RP], reportFilePath)
 		}
 
-		log.Printf("FINISHED: GETTING REPORT JOB: %s(Naumen RP = %s)\n\n", user.Username, user.RP)
+		logger.Info("finished getting report job", "USR", user.Username, "RP", user.RP)
 	}
 
 	// if mode 'naumen' - attach collected reports, close ticket(set wait for acceptance)
 	if *mode == "naumen" {
-		log.Println("Collected task data for Naumen RPs:")
+		logger.Info("Collected task data for Naumen RPs:")
 		for sc, val := range naumenSummary {
-			log.Printf("\t%v: %v\n", sc, val)
+			logger.Info("-", slog.Any("SC", sc), slog.Any("VAL", val))
 		}
 
 		// take responsibility on request, attach files and set acceptance
 		for sc := range naumenSummary {
 			// take responsibility on request
-			log.Printf("STARTED: take responsibility on Naumen ticket: %s", sc)
+			logger.Info("started take responsibility on Naumen ticket", "TICKET", sc)
 
 			errT := naumen.TakeSCResponsibility(&httpClient, naumenData.NaumenBaseUrl, naumenData.NaumenAccessKey, sc)
 			if errT != nil {
@@ -793,19 +836,20 @@ func main() {
 				errorTakeResp := fmt.Sprintf("FAILURE: take responsibility on Naumen ticket(%s):\n\t%v", naumenSummary[sc], errT)
 				// mail this error if mailing option is on
 				if *mailingOpt {
-					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorTakeResp))
+					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorTakeResp))
 					if mailErr != nil {
-						log.Printf("failed to send email:\n\t%v", mailErr)
+						logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 					}
 				}
-				log.Fatal(errorTakeResp)
+				logger.Error(errorTakeResp)
+				os.Exit(1)
 			}
 
-			// log.Printf("FINISHED: take responsibility on Naumen ticket: %s\n", naumenSummary[sc])
+			// logger.Printf("FINISHED: take responsibility on Naumen ticket: %s\n", naumenSummary[sc])
 
 			// attach files to RP and set acceptance
 			for rp, files := range naumenSummary[sc] {
-				log.Printf("STARTED: attaching files to ticket and set acceptance(%s)", rp)
+				logger.Info("started attaching files to ticket and set acceptance", "RP", rp)
 
 				// for files skip 0 index, because it's dataID
 				errA := naumen.AttachFilesAndSetAcceptance(
@@ -820,18 +864,19 @@ func main() {
 					errorAFSA := fmt.Sprintf("FAILURE: attaching files to ticket and set acceptance(%s):\n\t%v", rp, errA)
 					// mail this error if mailing option is on
 					if *mailingOpt {
-						mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorAFSA))
+						mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorAFSA))
 						if mailErr != nil {
-							log.Printf("failed to send email:\n\t%v", mailErr)
+							logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 						}
 					}
-					log.Fatal(errorAFSA)
+					logger.Error(errorAFSA)
+					os.Exit(1)
 				}
 
-				log.Printf("FINISHED: take responsibility, attach reports and set acceptance on Naumen ticket: %s\n", rp)
+				logger.Info("finished take responsibility, attach reports and set acceptance on Naumen ticket", "RP", rp)
 
 				// TODO: update db value if success(change to 1 if success or 0 for failure)
-				log.Printf("STARTED: update db with success result for value: %s", naumenSummary[sc][rp][0])
+				logger.Info("started update db with success result", "VAL", naumenSummary[sc][rp][0])
 
 				errU := dboperations.UpdDbValue(
 					dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn,
@@ -841,12 +886,13 @@ func main() {
 					errorDbUpd := fmt.Sprintf("FAILURE: update value(%s) to result(%v):\n\t%v", naumenSummary[sc][rp][0], 1, errU)
 					// mail this error if mailing option is on
 					if *mailingOpt {
-						mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorDbUpd))
+						mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorDbUpd))
 						if mailErr != nil {
-							log.Printf("failed to send email:\n\t%v", mailErr)
+							logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 						}
 					}
-					log.Fatal(errorDbUpd)
+					logger.Error(errorDbUpd)
+					os.Exit(1)
 				}
 
 				// report success
@@ -855,22 +901,22 @@ func main() {
 				if *mailingOpt {
 					mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "report", appName, []byte(reportDbUPD))
 					if mailErr != nil {
-						log.Printf("failed to send email:\n\t%v", mailErr)
+						logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 					}
 				}
-				log.Println(reportDbUPD)
+				logger.Info(reportDbUPD)
 			}
 		}
 	}
 
 	// count & print estimated time
 	endTime := time.Now()
-	log.Printf("Program's job is Done\n\tEstimated time is %f seconds", endTime.Sub(startTime).Seconds())
+	logger.Info("Program's job is Done", slog.Any("estimated time(sec)", endTime.Sub(startTime).Seconds()))
 
 	// close logfile and rotate logs
 	logFile.Close()
 
 	if err := vafswork.RotateFilesByMtime(*logsDir, *logsToKeep); err != nil {
-		log.Fatalf("failure to rotate logs:\n\t%s", err)
+		fmt.Fprintf(os.Stdout, "failure to rotate logs:\n\t%s", err)
 	}
 }
