@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
@@ -32,18 +31,6 @@ const (
 	dbProcessedDateColumn = "Processed_Date"
 )
 
-type fazData struct {
-	FazUrl          string              `json:"faz-url"`
-	ApiUser         string              `json:"api-user"`
-	ApiUserPass     string              `json:"api-user-pass"`
-	FazAdom         string              `json:"faz-adom"`
-	FazDevice       string              `json:"faz-device"`
-	FazDatasetAll   string              `json:"faz-dataset-connections"`
-	FazDatasetTotal string              `json:"faz-dataset-total"`
-	FazReportName   string              `json:"faz-report-name"`
-	FazDatasets     []map[string]string `json:"faz-datasets"`
-}
-
 type ldapData struct {
 	LdapBindUser string `json:"ldap-bind-user"`
 	LdapBindPass string `json:"ldap-bind-pass"`
@@ -70,25 +57,10 @@ type User struct {
 // struct of Naumen RP summary
 type NaumenRPSummary map[string]map[string][]string
 
-// open db helper func
-func openDB(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dsn)
-	if err != nil {
-		return nil, err
-	}
-
-	err = db.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
 func main() {
 	var (
 		logsPath           = vafswork.GetExePath() + "/logs" + "_" + appName
-		fazDataFilePath    = vafswork.GetExePath() + "/data/faz-data.json"
+		fazModelFilePath   = vafswork.GetExePath() + "/data/faz-data.json"
 		ldapDataFilePath   = vafswork.GetExePath() + "/data/ldap-data.json"
 		naumenDataFilePath = vafswork.GetExePath() + "/data/naumen-data.json"
 		usersFilePath      = vafswork.GetExePath() + "/data/users.csv"
@@ -98,7 +70,6 @@ func main() {
 		mailErr            error
 		ldapSamAccFilter   = "PAM-"
 
-		fazData         fazData
 		ldapData        ldapData
 		naumenData      naumenData
 		user            User
@@ -111,6 +82,8 @@ func main() {
 		fazReportLayout int
 		tempList        []string
 	)
+
+	fazModel := &fazrep.FazModelJson{}
 
 	// flags
 	logsDir := flag.String("log-dir", logsPath, "set custom log dir")
@@ -153,7 +126,7 @@ func main() {
 	}
 
 	// open db
-	db, err := openDB(*dsn)
+	db, err := helpers.OpenDB(*dsn)
 	if err != nil {
 		// mail this error if mailing option is on
 		if *mailingOpt {
@@ -181,7 +154,7 @@ func main() {
 	httpClient := vawebwork.NewInsecureClient()
 
 	// READING FAZ DATA FILE
-	fazDataFile, errFile := os.Open(fazDataFilePath)
+	fazModelFile, errFile := os.Open(fazModelFilePath)
 	if errFile != nil {
 		// report error
 		errorDataFile := fmt.Sprintf("FAILURE: open FAZ data file:\n\t%v", errFile)
@@ -195,35 +168,35 @@ func main() {
 		logger.Error(errorDataFile)
 		os.Exit(1)
 	}
-	defer fazDataFile.Close()
+	defer fazModelFile.Close()
 
-	byteFazData, errRead := io.ReadAll(fazDataFile)
+	bytefazModel, errRead := io.ReadAll(fazModelFile)
 	if errRead != nil {
 		// report error
-		errorFazData := fmt.Sprintf("FAILURE: read FAZ data file:\n\t%v", errRead)
+		errorfazModel := fmt.Sprintf("FAILURE: read FAZ data file:\n\t%v", errRead)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazData))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorfazModel))
 			if mailErr != nil {
 				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		logger.Error(errorFazData)
+		logger.Error(errorfazModel)
 		os.Exit(1)
 	}
 
-	errJsonF := json.Unmarshal(byteFazData, &fazData)
+	errJsonF := json.Unmarshal(bytefazModel, &fazModel)
 	if errJsonF != nil {
 		// report error
-		errorFazDataJson := fmt.Sprintf("FAILURE: unmarshall FAZ data:\n\t%v", errJsonF)
+		errorfazModelJson := fmt.Sprintf("FAILURE: unmarshall FAZ data:\n\t%v", errJsonF)
 		// mail this error if mailing option is on
 		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazDataJson))
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorfazModelJson))
 			if mailErr != nil {
 				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 			}
 		}
-		logger.Error(errorFazDataJson)
+		logger.Error(errorfazModelJson)
 		os.Exit(1)
 	}
 
@@ -244,7 +217,7 @@ func main() {
 		logger.Error(errorLdapData)
 		os.Exit(1)
 	}
-	defer fazDataFile.Close()
+	defer fazModelFile.Close()
 
 	byteLdapData, errRead := io.ReadAll(ldapDataFile)
 	if errRead != nil {
@@ -563,7 +536,7 @@ func main() {
 
 	// GETTING FAZ SESSION ID
 	logger.Info("getting FAZ session id")
-	sessionid, errS := fazrep.GetSessionid(&httpClient, fazData.FazUrl, fazData.ApiUser, fazData.ApiUserPass)
+	sessionid, errS := fazModel.GetSessionid(&httpClient, fazModel.FazUrl, fazModel.ApiUser, fazModel.ApiUserPass)
 	if errS != nil {
 		// report error
 		errorFazSessionid := fmt.Sprintf("FAILURE: get FAZ sessionid\n\t%v", errS)
@@ -579,7 +552,7 @@ func main() {
 	}
 
 	// GETTING FAZ REPORT LAYOUT
-	fazReportLayout, errLayout := fazrep.GetFazReportLayout(&httpClient, fazData.FazUrl, sessionid, fazData.FazAdom, fazData.FazReportName)
+	fazReportLayout, errLayout := fazModel.GetFazReportLayout(&httpClient, fazModel.FazUrl, sessionid, fazModel.FazAdom, fazModel.FazReportName)
 	if err != nil {
 		// report error
 		errorFazRepLayout := fmt.Sprintf("FAILURE: get FAZ report layout:\n\t%v", errLayout)
@@ -649,25 +622,25 @@ func main() {
 		// logger.Fatal(errorFazSessionid)
 
 		// UPDATING DATASETS QUERY
-		errUpdDataset := fazrep.UpdateDatasets(&httpClient, fazData.FazUrl, sessionid, fazData.FazAdom, sAMAccountName, fazData.FazDatasets)
+		errUpdDataset := fazModel.UpdateDatasets(&httpClient, fazModel.FazUrl, sessionid, fazModel.FazAdom, sAMAccountName, fazModel.FazDatasets)
 		if errUpdDataset != nil {
 			// report error
-			errorFazDatasetUpd := fmt.Sprintf("FAILURE: to update FAZ datasets:\n\t%v", errUpdDataset)
+			errorfazModelsetUpd := fmt.Sprintf("FAILURE: to update FAZ datasets:\n\t%v", errUpdDataset)
 			// mail this error if mailing option is on
 			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorFazDatasetUpd))
+				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte(errorfazModelsetUpd))
 				if mailErr != nil {
 					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
 				}
 			}
-			logger.Error(errorFazDatasetUpd)
+			logger.Error(errorfazModelsetUpd)
 			os.Exit(1)
 		}
 
 		// STARTING REPORT
 		logger.Info("started running FAZ report job", "USR", user.Username)
 
-		repId, err := fazrep.StartReport(&httpClient, fazData.FazUrl, fazData.FazAdom, fazData.FazDevice, sessionid, user.StartDate, user.EndDate, fazReportLayout)
+		repId, err := fazModel.StartReport(&httpClient, fazModel.FazUrl, fazModel.FazAdom, fazModel.FazDevice, sessionid, user.StartDate, user.EndDate, fazReportLayout)
 		if err != nil {
 			// report error
 			errorFazReportStart := fmt.Sprintf("FAILURE: to start FAZ report:\n\t%v", err)
@@ -685,7 +658,7 @@ func main() {
 		// DOWNLOADING PDF REPORT
 		logger.Info("started downloading report", "USR", user.Username)
 
-		repData, err := fazrep.DownloadPdfReport(&httpClient, fazData.FazUrl, fazData.FazAdom, sessionid, repId)
+		repData, err := fazModel.DownloadPdfReport(&httpClient, fazModel.FazUrl, fazModel.FazAdom, sessionid, repId)
 		if err != nil {
 			// report error
 			errorFazReportDownload := fmt.Sprintf("FAILURE: dowonload FAZ report:\n\t%v", err)

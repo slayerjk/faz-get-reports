@@ -23,8 +23,21 @@ const (
 	messageOk   = `"message": "OK"`
 )
 
+// define FAZ model struct for JSON response
+type FazModelJson struct {
+	FazUrl          string              `json:"faz-url"`
+	ApiUser         string              `json:"api-user"`
+	ApiUserPass     string              `json:"api-user-pass"`
+	FazAdom         string              `json:"faz-adom"`
+	FazDevice       string              `json:"faz-device"`
+	FazDatasetAll   string              `json:"faz-dataset-connections"`
+	FazDatasetTotal string              `json:"faz-dataset-total"`
+	FazReportName   string              `json:"faz-report-name"`
+	FazDatasets     []map[string]string `json:"faz-datasets"`
+}
+
 // GET SESSION ID TO PERFORM FAZ API REQUESTS
-func GetSessionid(httpClient *http.Client, fazurl, apiuser, apipass string) (string, error) {
+func (fazData *FazModelJson) GetSessionid(httpClient *http.Client, fazurl, apiuser, apipass string) (string, error) {
 	/*
 		Correct Request Example:
 
@@ -168,7 +181,7 @@ func GetSessionid(httpClient *http.Client, fazurl, apiuser, apipass string) (str
 }
 
 // GET FAZ REPORT LAYOUT BY IT'S NAME
-func GetFazReportLayout(httpClient *http.Client, fazurl, sessionid, adom, repName string) (int, error) {
+func (fazData *FazModelJson) GetFazReportLayout(httpClient *http.Client, fazurl, sessionid, adom, repName string) (int, error) {
 	/*
 		Correct Request Example
 
@@ -353,7 +366,7 @@ func GetFazReportLayout(httpClient *http.Client, fazurl, sessionid, adom, repNam
 }
 
 // UPDATING DATASETS FOR REPORTS FOR CORRESPONDING USER
-func UpdateDatasets(httpClient *http.Client, fazurl, sessionid, adom, username string, datasets []map[string]string) error {
+func (fazData *FazModelJson) UpdateDatasets(httpClient *http.Client, fazurl, sessionid, adom, username string, datasets []map[string]string) error {
 	/*
 		Correct Request Example(EVERY CONNECT):
 
@@ -518,7 +531,7 @@ func UpdateDatasets(httpClient *http.Client, fazurl, sessionid, adom, username s
 }
 
 // GETTING REPORT STATE(running/generated) TO CHECK IF IT READY TO DOWNLOAD
-func reportIsGenerated(httpClient *http.Client, fazurl, sessionid, adom, repId string) (string, error) {
+func (fazData *FazModelJson) reportIsGenerated(httpClient *http.Client, fazurl, sessionid, adom, repId string) (string, error) {
 	/*
 		Correct Request Example:
 
@@ -678,7 +691,7 @@ func reportIsGenerated(httpClient *http.Client, fazurl, sessionid, adom, repId s
 }
 
 // STARTING REPORTS PROCESSING
-func StartReport(httpClient *http.Client, fazurl, adom, device, sessionid, start, end string, layout int) (string, error) {
+func (fazData *FazModelJson) StartReport(httpClient *http.Client, fazurl, adom, device, sessionid, start, end string, layout int) (string, error) {
 	/*
 		Correct Request Example:
 
@@ -820,7 +833,7 @@ func StartReport(httpClient *http.Client, fazurl, adom, device, sessionid, start
 
 	// check if report is in 'generated' state already
 	for {
-		repState, err := reportIsGenerated(httpClient, fazurl, sessionid, adom, response.Result.Tid)
+		repState, err := fazData.reportIsGenerated(httpClient, fazurl, sessionid, adom, response.Result.Tid)
 		if err != nil {
 			return "", fmt.Errorf("error in reportIsGenerated loop(check if generated):\n\t%v", err)
 		}
@@ -844,7 +857,7 @@ func StartReport(httpClient *http.Client, fazurl, adom, device, sessionid, start
 }
 
 // DOWNLOADING PDF REPORT
-func DownloadPdfReport(httpClient *http.Client, fazUrl, fazAdom, sessionid, repId string) (string, error) {
+func (fazData *FazModelJson) DownloadPdfReport(httpClient *http.Client, fazUrl, fazAdom, sessionid, repId string) (string, error) {
 	/*
 		Correct Request Example:
 
