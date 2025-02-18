@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
@@ -9,14 +10,13 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
 	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
-	dboperations "github.com/slayerjk/faz-get-reports/internal/models"
+	"github.com/slayerjk/faz-get-reports/internal/helpers"
+	models "github.com/slayerjk/faz-get-reports/internal/models"
 	naumen "github.com/slayerjk/go-hd-naumen-api"
 	mailing "github.com/slayerjk/go-mailing"
 	vafswork "github.com/slayerjk/go-vafswork"
@@ -70,6 +70,21 @@ type User struct {
 // struct of Naumen RP summary
 type NaumenRPSummary map[string]map[string][]string
 
+// open db helper func
+func openDB(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.Ping()
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
 func main() {
 	var (
 		logsPath           = vafswork.GetExePath() + "/logs" + "_" + appName
@@ -104,6 +119,7 @@ func main() {
 	mailingOpt := flag.Bool("m", false, "turn the mailing options on(use 'data/mailing.json')")
 	mailingFile := flag.String("mailing-file", mailingFileDefault, "full path to 'mailing.json'")
 	hdSolutionText := flag.String("solution-text", "Запрос  исполнен, результат во вложении!", "set solution text for HD Request")
+	dsn := flag.String("dsn", dbFile, "SQLITE3 db file full path")
 	flag.Parse()
 
 	// logging
@@ -127,40 +143,32 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(logFile, nil))
 
 	// check if faz-get-report process is running already(exit if is already running)
-	var (
-		cmdOutput []byte
-		errOutput error
-	)
-	switch runtime.GOOS {
-	case "windows":
-		cmd := exec.Command("powershell", "Get-Process", appName)
-		cmdOutput, errOutput = cmd.Output()
-		if errOutput != nil {
-			logger.Error("failed to get output of process list command", "OS", runtime.GOOS, "ERR", errOutput)
-			os.Exit(1)
+	dublicateProcFound, err := helpers.IsAppAlreadyRunning(appName)
+	if err != nil {
+		logger.Error("failed to check if there are dublicate procs", slog.Any("ERR", err))
+	}
+	if dublicateProcFound {
+		logger.Warn("application is already running, exiting this time")
+		os.Exit(0)
+	}
+
+	// open db
+	db, err := openDB(*dsn)
+	if err != nil {
+		// mail this error if mailing option is on
+		if *mailingOpt {
+			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "ERR", appName, []byte("failed to open DB file at openDB()"))
+			if mailErr != nil {
+				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
+			}
 		}
-	case "linux":
-		cmd := exec.Command("ps", "-C", appName)
-		cmdOutput, errOutput = cmd.Output()
-		if errOutput != nil {
-			logger.Error("failed to get output of process list command", "OS", runtime.GOOS, "ERR", errOutput)
-			os.Exit(1)
-		}
-	default:
-		logger.Error("platform doesn't supported", "platform", runtime.GOOS)
+		logger.Error("failed to open DB file", "DSN", *dsn, slog.Any("ERROR", err))
 		os.Exit(1)
 	}
-	// searching if there are more than one process of running app(based on appName)
-	searchProcessRegexp := regexp.MustCompile(appName)
-	searchProcessResult := searchProcessRegexp.FindAll(cmdOutput, -1)
-	if len(searchProcessResult) > 1 {
-		logger.Error(
-			"the application is already running",
-			slog.Int("PROC NUM", len(searchProcessResult)),
-			"CMD_OUTPUT", string(cmdOutput),
-		)
-		os.Exit(1)
-	}
+	defer db.Close()
+
+	// define db model instance
+	dbModel := &models.DbModel{DB: db}
 
 	// create map for Naumen RP data(RP, SC, files report)
 	naumenSummary := make(map[string]map[string][]string)
@@ -172,7 +180,6 @@ func main() {
 	// making http client for FAZ/HD Naumen request
 	httpClient := vawebwork.NewInsecureClient()
 
-	// TODO: refactor -> vafswork
 	// READING FAZ DATA FILE
 	fazDataFile, errFile := os.Open(fazDataFilePath)
 	if errFile != nil {
@@ -336,7 +343,7 @@ func main() {
 		}
 
 		// getting list of unporcessed values in db
-		unprocessedValues, err := dboperations.GetUnprocessedDbValues(dbFile, dbTable, dbValueColumn, dbProcessedColumn)
+		unprocessedValues, err := dbModel.GetUnprocessedDbValues(dbFile, dbTable, dbValueColumn, dbProcessedColumn)
 		if err != nil {
 			// report error
 			errorUnprocessedValues := fmt.Sprintf("FAILURE: get list of unprocessed values in db(%s):\n\t%v", dbFile, err)
@@ -878,7 +885,7 @@ func main() {
 				// TODO: update db value if success(change to 1 if success or 0 for failure)
 				logger.Info("started update db with success result", "VAL", naumenSummary[sc][rp][0])
 
-				errU := dboperations.UpdDbValue(
+				errU := dbModel.UpdDbValue(
 					dbFile, dbTable, dbValueColumn, dbProcessedColumn, dbProcessedDateColumn,
 					naumenSummary[sc][rp][0], 1)
 				if errU != nil {

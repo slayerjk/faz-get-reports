@@ -10,8 +10,13 @@ import (
 	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
+// define db model struct
+type DbModel struct {
+	DB *sql.DB
+}
+
 // get list of unprocessed values in db('Processed' column = NULL)
-func GetUnprocessedDbValues(dbFile, dbTable, dbValueColumn, dbProcessedColumn string) ([]string, error) {
+func (model *DbModel) GetUnprocessedDbValues(dbFile, dbTable, dbValueColumn, dbProcessedColumn string) ([]string, error) {
 	result := make([]string, 0)
 
 	// open db file
@@ -43,7 +48,7 @@ func GetUnprocessedDbValues(dbFile, dbTable, dbValueColumn, dbProcessedColumn st
 }
 
 // update processed value(0 - for failed, 1 - for succeeded)
-func UpdDbValue(dbFile, dbTable, dbValueColumn, dbColumnToUpd, dbProcessedDateColumn, valueToUpd string, updTo int) error {
+func (model *DbModel) UpdDbValue(dbFile, dbTable, dbValueColumn, dbColumnToUpd, dbProcessedDateColumn, valueToUpd string, updTo int) error {
 	// open db file
 	db, err := sql.Open("sqlite3", "file:"+dbFile)
 	if err != nil {

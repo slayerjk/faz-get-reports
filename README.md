@@ -15,6 +15,7 @@ Flags are:
     * m(mailing on, use 'data/mailing.json')
     * mailing-file(full path to 'mailing.json', default is in the "data/mailing.json")
     * solution-text(solution text for HD Request)
+    * dsn - data source name(dsn); for SQLITE3 it is db file path
 
 <h2>Description</h2>
 

@@ -5,6 +5,7 @@
 !internal/fazrequests/fazrequests.go
 !internal/models/dbmodel.go
 !internal/hd-naumen-api/hd-naumen-api.go
+!internal/helpers/helpers.go
 
 !data/BLANK_data.json
 !data/BLANK_users.csv
