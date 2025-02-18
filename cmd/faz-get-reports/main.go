@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/slayerjk/faz-get-reports/internal/dboperations"
 	fazrep "github.com/slayerjk/faz-get-reports/internal/fazrequests"
+	dboperations "github.com/slayerjk/faz-get-reports/internal/models"
 	naumen "github.com/slayerjk/go-hd-naumen-api"
 	mailing "github.com/slayerjk/go-mailing"
 	vafswork "github.com/slayerjk/go-vafswork"

@@ -2,12 +2,8 @@
 *
 
 # except
-!internal/ldap/ldap.go
 !internal/fazrequests/fazrequests.go
-!internal/logging/logging.go
-!internal/mailing/mailing.go
-!internal/vafswork/vafswork.go
-!internal/dboperations/dboperations.go
+!internal/models/dbmodel.go
 !internal/hd-naumen-api/hd-naumen-api.go
 
 !data/BLANK_data.json
@@ -15,7 +11,8 @@
 !data/data_BLANK.db
 !data/mailing_BLANK.json
 
-!cmd/get-faz-reports.go
+!cmd/get-faz-reports/main.go
+!cmd/get-faz-reports/.goreleaser.yaml
 
 !go.mod
 !.gitignore
