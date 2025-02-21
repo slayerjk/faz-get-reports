@@ -8,7 +8,7 @@ require (
 	github.com/ncruces/go-sqlite3 v0.20.0
 	github.com/slayerjk/go-hd-naumen-api v0.0.1
 	github.com/slayerjk/go-mailing v0.0.1
-	github.com/slayerjk/go-vafswork v0.0.1
+	github.com/slayerjk/go-vafswork v0.0.3
 	github.com/slayerjk/go-valdapwork v0.0.1
 	github.com/slayerjk/go-vawebwork v0.0.1
 )
