@@ -93,6 +93,13 @@ func main() {
 	mailingFile := flag.String("mailing-file", mailingFileDefault, "full path to 'mailing.json'")
 	hdSolutionText := flag.String("solution-text", "Запрос  исполнен, результат во вложении!", "set solution text for HD Request")
 	dsn := flag.String("dsn", dbFile, "SQLITE3 db file full path")
+
+	flag.Usage = func() {
+		fmt.Println("Version: v0.2.0(21.02.2025)")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
 
 	// logging
