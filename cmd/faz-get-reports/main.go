@@ -595,7 +595,7 @@ func main() {
 		if err != nil {
 			// report error
 			errorGetSamaccountName := fmt.Sprintf(
-				"FAILURE: fetch AD samaccountname for '%s'(NaumenRP=%s):\n\t%v\n\tSkpping user",
+				"FAILURE: fetch AD samaccountname for '%s'(NaumenRP=%s):\n\t%v\n\tSkipping user",
 				user.UserInitials,
 				user.RP,
 				err,
