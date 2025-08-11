@@ -2,7 +2,6 @@
 
 As data input program uses:
 * "data/faz-data.json" - FAZ creds
-* "data/ldap-data.json" - LDAP data to get users' displayname attribute to process FAZ reports
 * "data/naumen-data.json" - HD Naumen data to automate ticket processing, mode 'naumen'
 * "data/users.csv" - users data for 'csv' mode
 
@@ -49,18 +48,6 @@ Here is example of json used for FAZ API:
 }
 ```
 
-<h3>LDAP Data Json</h3>
-
-Here is example of json used for LDAP:
-```
-{
-    "ldap-bind-user": "<LDAP BIND USER>",
-    "ldap-bind-pass": "<LDAP BIND USER'S PASS",
-    "ldap-fqdn": "<DOMAIN FQDN>",
-    "ldap-basedn": "DC=DOMAIN,DC=EXAMPLE,DC=COM",
-}
-```
-
 <h3>Naumen Data Json</h3>
 
 Here is example of json used for HD Naumen API:
@@ -73,7 +60,7 @@ Here is example of json used for HD Naumen API:
 
 <h3>mode 'csv' - Using CSV</h3>
 
-In users.csv first column is AD displayName attribute(Full user name). So for FAZ script must use sAMAccountName - need to use LDAP to get this.
+In users.csv first column is AD CN name(account name).
 
 FAZ API let download only zip file(with <b>PDF</b> inside), so result(check "Results" dir in the same location as script) is zip file with name format:
 ```
@@ -113,24 +100,23 @@ First, progarm checks if there are more than one program instance running. If th
 
 <h3>mode 'naumen'</h3>
 <ol>
-    <li> read data file for FAZ & LDAP creds </li>
+    <li> read data file for FAZ </li>
     <li>read db entries(hd naumen tasks ids) in db and get all unprocessed</li>
     <li>make api request to get all tasks data(username, startdate, enddate)
     <ol> starting report loop for each user(one in time)
-        <li> search for LDAP sAMAccountName(ldapSamAccFilter="PAM-" to filter)  of corresponding user(only Enabled users: userAccountControl != 546|514) in users.csv using LDAP bind user/pass </li>
         <li> get FAZ sessionid to use FAZ API using FAZ API user/pass </li>
         <li> update FAZ datasets SQL queries for corresponding user </li>
         <li> run FAZ report and wait when it will have "generated" status </li>
         <li> download and save report in Results dir(created if none) </li>
         <li>make api request to hd naumen's task, attach result to it and make it's status resolved</li>
     </ol>
+    <li> remove Results/RP dir
 </ol>
 
 <h3>mode 'csv'</h3>
 <ol>
-    <li> read data file for FAZ & LDAP creds </li>
+    <li> read data file for FAZ</li>
     <ol> starting report loop for each user(one in time)
-        <li> search for LDAP sAMAccountName(ldapSamAccFilter="PAM-" to filter)  of corresponding user(only Enabled users: userAccountControl != 546|514) in users.csv using LDAP bind user/pass </li>
         <li> get FAZ sessionid to use FAZ API using FAZ API user/pass </li>
         <li> update FAZ datasets SQL queries for corresponding user </li>
         <li> run FAZ report and wait when it will have "generated" status </li>

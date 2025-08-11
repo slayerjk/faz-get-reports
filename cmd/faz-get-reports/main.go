@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -19,7 +20,6 @@ import (
 	naumen "github.com/slayerjk/go-hd-naumen-api"
 	mailing "github.com/slayerjk/go-mailing"
 	vafswork "github.com/slayerjk/go-vafswork"
-	ldap "github.com/slayerjk/go-valdapwork"
 	vawebwork "github.com/slayerjk/go-vawebwork"
 )
 
@@ -31,23 +31,15 @@ const (
 	dbProcessedDateColumn = "Processed_Date"
 )
 
-type ldapData struct {
-	LdapBindUser string `json:"ldap-bind-user"`
-	LdapBindPass string `json:"ldap-bind-pass"`
-	LdapFqdn     string `json:"ldap-fqdn"`
-	LdapBaseDn   string `json:"ldap-basedn"`
-}
-
 type naumenData struct {
 	NaumenBaseUrl   string `json:"naumen-base-url"`
 	NaumenAccessKey string `json:"naumen-access-key"`
 }
 
 type User struct {
-	Username     string
-	StartDate    string
-	EndDate      string
-	UserInitials string
+	Username  string
+	StartDate string
+	EndDate   string
 	// Fields below is only for mode 'naumen'
 	DBId        string
 	ServiceCall string
@@ -61,26 +53,20 @@ func main() {
 	var (
 		logsPath           = vafswork.GetExePath() + "/logs" + "_" + appName
 		fazModelFilePath   = vafswork.GetExePath() + "/data/faz-data.json"
-		ldapDataFilePath   = vafswork.GetExePath() + "/data/ldap-data.json"
 		naumenDataFilePath = vafswork.GetExePath() + "/data/naumen-data.json"
 		usersFilePath      = vafswork.GetExePath() + "/data/users.csv"
 		resultsPath        = vafswork.GetExePath() + "/Reports"
 		dbFile             = vafswork.GetExePath() + "/data/data.db"
 		mailingFileDefault = vafswork.GetExePath() + "/data/mailing.json"
 		mailErr            error
-		ldapSamAccFilter   = "PAM-"
-
-		ldapData        ldapData
-		naumenData      naumenData
-		user            User
-		users           []User
-		sessionid       string
-		reportFilePath  string
-		repStartTime    string
-		repEndTime      string
-		sAMAccountName  string
-		fazReportLayout int
-		tempList        []string
+		naumenData         naumenData
+		user               User
+		users              []User
+		sessionid          string
+		reportFilePath     string
+		repStartTime       string
+		repEndTime         string
+		fazReportLayout    int
 	)
 
 	fazModel := &fazrep.FazModelJson{}
@@ -95,7 +81,7 @@ func main() {
 	dsn := flag.String("dsn", dbFile, "SQLITE3 db file full path")
 
 	flag.Usage = func() {
-		fmt.Println("Version: v0.2.2(28.04.2025)")
+		fmt.Println("Version: v0.3.0(11.08.2025)")
 		fmt.Println("Flags:")
 		flag.PrintDefaults()
 	}
@@ -204,55 +190,6 @@ func main() {
 			}
 		}
 		logger.Error(errorfazModelJson)
-		os.Exit(1)
-	}
-
-	// TODO: refactor -> vafswork
-	// READING LDAP DATA FILE
-	ldapDataFile, errFile := os.Open(ldapDataFilePath)
-	if errFile != nil {
-		// report error
-		errorLdapData := fmt.Sprintf("FAILURE: open LDAP data file:\n\t%v", errFile)
-		// mail this error if mailing option is on
-		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorLdapData))
-			if mailErr != nil {
-				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
-				os.Exit(1)
-			}
-		}
-		logger.Error(errorLdapData)
-		os.Exit(1)
-	}
-	defer fazModelFile.Close()
-
-	byteLdapData, errRead := io.ReadAll(ldapDataFile)
-	if errRead != nil {
-		// report error
-		errorLdapDataRead := fmt.Sprintf("FAILURE: read LDAP data file:\n\t%v", errRead)
-		// mail this error if mailing option is on
-		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorLdapDataRead))
-			if mailErr != nil {
-				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
-			}
-		}
-		logger.Error(errorLdapDataRead)
-		os.Exit(1)
-	}
-
-	errJsonL := json.Unmarshal(byteLdapData, &ldapData)
-	if errJsonL != nil {
-		// report error
-		errorLdapDataJson := fmt.Sprintf("FAILURE: unmarshall LDAP data file:\n\t%v", errJsonL)
-		// mail this error if mailing option is on
-		if *mailingOpt {
-			mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorLdapDataJson))
-			if mailErr != nil {
-				logger.Warn("failed to send email", slog.Any("ERR", mailErr))
-			}
-		}
-		logger.Error(errorLdapDataJson)
 		os.Exit(1)
 	}
 
@@ -366,8 +303,8 @@ func main() {
 			logger.Info(sumDescriptionFound)
 
 			// sumDescription example:
-			// "sumDescription": "<font color=\"#5f5f5f\">Укажите ФИО: <b>Surname1 Name1 Patronymic1, Surname2 Name2 Patronymic2</b>
-			//   </font><br><font color=\"#5f5f5f\">Укажите дату:: <b>02.11.2024 00:01 - 03.11.2024 23:59</b></font><br>",
+			// "sumDescription": "<font color=\"#5f5f5f\">Укажите учетную запись: <b>MAMYRBDA, MARCHENM</b>
+			// 	</font><br><font color=\"#5f5f5f\">Укажите дату:: <b>31.07.2025 00:59 - 31.07.2025 19:00</b></font><br>",
 
 			// parse sumDescription for date
 			// we need everyting between <b></b> after 'Укажите дату::'
@@ -402,6 +339,7 @@ func main() {
 				logger.Error(errorDatesEmpty)
 				os.Exit(1)
 			}
+
 			// next we need to format dates to FAZ format('00:00:01 2024/08/06')
 			for ind, date := range datesFound {
 				// convert string to time.Time(02.11.2024 00:01)
@@ -425,8 +363,8 @@ func main() {
 			// fmt.Println(datesFound)
 
 			// parse sumDescription for users
-			// we need everyting between <b></b> after 'Укажите ФИО:'
-			usersNamesPattern := regexp.MustCompile(`.*?Укажите ФИО:+ +<b>(.*?)<\/b>.*`)
+			// we need everyting between <b></b> after 'Укажите учетную запись:'
+			usersNamesPattern := regexp.MustCompile(`.*?Укажите учетную запись:+ +<b>(.*?)<\/b>.*`)
 			// result will be in 2 index of FindStringSubmatch or 'nil' if not found
 			usersSubexpr := usersNamesPattern.FindStringSubmatch(sumDescription[2])
 			if usersSubexpr == nil {
@@ -461,24 +399,12 @@ func main() {
 
 			// forming users
 			for _, foundUser := range usersFound {
-				user.Username = strings.Trim(foundUser, " ")
+				user.Username = strings.ToUpper(strings.Trim(foundUser, " "))
 				user.StartDate = datesFound[0]
 				user.EndDate = datesFound[1]
 				user.RP = sumDescription[1]
 				user.DBId = taskId
 				user.ServiceCall = sumDescription[0]
-
-				// GETTING USER INITIALS
-				tempList = []string{}
-				for ind, item := range strings.Split(user.Username, " ") {
-					if ind == 0 {
-						tempList = append(tempList, item)
-					} else {
-						runeItem := []rune(item)
-						tempList = append(tempList, fmt.Sprintf("%s.", string(runeItem[0:1])))
-					}
-				}
-				user.UserInitials = strings.Join(tempList, " ")
 
 				// append formed user to users list
 				users = append(users, user)
@@ -518,23 +444,9 @@ func main() {
 				break
 			}
 
-			user.Username = row[0]
-
-			// GETTING USER INITIALS
-			tempList = []string{}
-			for ind, item := range strings.Split(row[0], " ") {
-				if ind == 0 {
-					tempList = append(tempList, item)
-				} else {
-					runeItem := []rune(item)
-					tempList = append(tempList, fmt.Sprintf("%s.", string(runeItem[0:1])))
-				}
-			}
-			user.UserInitials = strings.Join(tempList, " ")
-
+			user.Username = strings.ToUpper(row[0])
 			user.StartDate = row[1]
 			user.EndDate = row[2]
-
 			users = append(users, user)
 		}
 	}
@@ -583,53 +495,8 @@ func main() {
 	for _, user := range users {
 		logger.Info("getting report job", "USR", user.Username)
 
-		// GETTING AD user's samaccountname; exclude 'PAM-' accounts
-		sAMAccountName, err = ldap.BindAndSearchSamaccountnameByDisplayname(
-			user.Username,
-			ldapData.LdapFqdn,
-			ldapData.LdapBaseDn,
-			ldapData.LdapBindUser,
-			ldapData.LdapBindPass,
-			ldapSamAccFilter,
-		)
-		if err != nil {
-			// report error
-			errorGetSamaccountName := fmt.Sprintf(
-				"FAILURE: fetch AD samaccountname for '%s'(NaumenRP=%s):\n\t%v\n\tSkipping user",
-				user.UserInitials,
-				user.RP,
-				err,
-			)
-			// mail this error if mailing option is on
-			if *mailingOpt {
-				mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorGetSamaccountName))
-				if mailErr != nil {
-					logger.Warn("failed to send email", slog.Any("ERR", mailErr))
-				}
-			}
-			// TODO: just skip user, don't shutdown the app
-			// logger.Fatal(errorGetSamaccountName)
-			logger.Warn(errorGetSamaccountName)
-			continue
-		}
-
-		logger.Info("User's sAMAccountName found", "ACC", sAMAccountName)
-		// os.Exit(0)
-
-		// GETTING SESSIONID
-		// report error
-		// errorFazSessionid := fmt.Sprintf("FAILURE: get FAZ sessionid\n\t%v", errS)
-		// mail this error if mailing option is on
-		// if *mailingOpt {
-		// 	mailErr = mailing.SendPlainEmailWoAuth(*mailingFile, "error", appName, []byte(errorFazSessionid))
-		// 	if mailErr != nil {
-		// 		logger.Warn("failed to send email", slog.Any("ERR", mailErr))
-		// 	}
-		// }
-		// logger.Fatal(errorFazSessionid)
-
 		// UPDATING DATASETS QUERY
-		errUpdDataset := fazModel.UpdateDatasets(&httpClient, fazModel.FazUrl, sessionid, fazModel.FazAdom, sAMAccountName, fazModel.FazDatasets)
+		errUpdDataset := fazModel.UpdateDatasets(&httpClient, fazModel.FazUrl, sessionid, fazModel.FazAdom, user.Username, fazModel.FazDatasets)
 		if errUpdDataset != nil {
 			// report error
 			errorfazModelsetUpd := fmt.Sprintf("FAILURE: to update FAZ datasets:\n\t%v", errUpdDataset)
@@ -732,7 +599,7 @@ func main() {
 		}
 
 		// forming report file full path
-		reportFilePath = fmt.Sprintf("%s/%s_%s_%s.zip", resultsPath, user.UserInitials, repStartTime, repEndTime)
+		reportFilePath = fmt.Sprintf("%s/%s_%s_%s.zip", resultsPath, user.Username, repStartTime, repEndTime)
 		// if mode == 'naumen' save to user.RP subdir of resultsPath
 		if *mode == "naumen" {
 			// creating Report dir for RP: 'Reports/RP***'
@@ -749,7 +616,8 @@ func main() {
 				logger.Error(errorMkdirReportRP)
 				os.Exit(1)
 			}
-			reportFilePath = fmt.Sprintf("%s/%s/%s.zip", resultsPath, user.RP, user.UserInitials)
+
+			reportFilePath = fmt.Sprintf("%s/%s/%s.zip", resultsPath, user.RP, user.Username)
 		}
 
 		// create empty report file(full path)
@@ -861,8 +729,6 @@ func main() {
 				}
 
 				logger.Info("finished take responsibility, attach reports and set acceptance on Naumen ticket", "RP", rp)
-
-				// TODO: update db value if success(change to 1 if success or 0 for failure)
 				logger.Info("started update db with success result", "VAL", naumenSummary[sc][rp][0])
 
 				errU := dbModel.UpdDbValue(
@@ -894,6 +760,14 @@ func main() {
 				logger.Info(reportDbUPD)
 			}
 		}
+
+		// clean reports dir if mode 'naumen'
+		dirToRemove := filepath.Dir(reportFilePath)
+		logger.Info("cleaning reports dir", "dir", dirToRemove)
+		if err = os.RemoveAll(dirToRemove); err != nil {
+			logger.Info("failed cleaning reports dir", "dir", dirToRemove)
+		}
+
 	}
 
 	// count & print estimated time
